@@ -8,6 +8,8 @@ import com.google.polo.wire.protobuf.PoloProto.PairingRequest
 import com.google.polo.wire.protobuf.PoloProto.Secret
 import com.google.protobuf.ByteString
 import com.google.protobuf.InvalidProtocolBufferException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
@@ -82,17 +84,18 @@ class PairingClient(private val certManager: CertManager) {
      *
      * @throws IOException if the TV cannot be reached or rejects the request.
      */
-    suspend fun start(host: String, network: Network?, port: Int = PAIRING_PORT): PairingSession {
-        val connection = certManager.connect(host, port, pinnedFingerprint = null, network = network)
-        val session = PairingSession(connection, certManager.clientCertificate())
-        try {
-            session.begin()
-        } catch (e: Throwable) {
-            session.close()
-            throw e
+    suspend fun start(host: String, network: Network?, port: Int = PAIRING_PORT): PairingSession =
+        withContext(Dispatchers.IO) {
+            val connection = certManager.connect(host, port, pinnedFingerprint = null, network = network)
+            val session = PairingSession(connection, certManager.clientCertificate())
+            try {
+                session.begin()
+            } catch (e: Throwable) {
+                session.close()
+                throw e
+            }
+            session
         }
-        return session
-    }
 
     companion object {
         const val PAIRING_PORT = 6467

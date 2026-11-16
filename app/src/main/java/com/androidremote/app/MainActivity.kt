@@ -75,23 +75,29 @@ class MainActivity : ComponentActivity() {
     }
 
     /** The phone's volume keys control the TV while the app is open (can be turned off in Settings). */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val keyCode = when (event.keyCode) {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val tvKey = tvVolumeKey(keyCode) ?: return super.onKeyDown(keyCode, event)
+        // Holding a key auto-repeats faster than the TV should step; keep it at the on-screen buttons' rate.
+        val now = SystemClock.uptimeMillis()
+        if (event.repeatCount == 0 || now - lastVolumeKeyAt >= Tokens.RepeatIntervalMs) {
+            lastVolumeKeyAt = now
+            controller.sendKey(tvKey)
+        }
+        return true
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        if (tvVolumeKey(keyCode) != null) true else super.onKeyUp(keyCode, event)
+
+    /** The TV key a phone volume key maps to, or null if the phone should handle the key itself. */
+    private fun tvVolumeKey(keyCode: Int): Int? {
+        val state = controller.state.value
+        if (!state.settings.volumeKeysControlTv || !state.tv.connected) return null
+        return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> KeyCodes.VOLUME_UP
             KeyEvent.KEYCODE_VOLUME_DOWN -> KeyCodes.VOLUME_DOWN
             else -> null
         }
-        val state = controller.state.value
-        if (keyCode == null || !state.settings.volumeKeysControlTv || !state.tv.connected) return super.dispatchKeyEvent(event)
-        if (event.action == KeyEvent.ACTION_DOWN) {
-            // Holding a key auto-repeats faster than the TV should step; keep it at the on-screen buttons' rate.
-            val now = SystemClock.uptimeMillis()
-            if (event.repeatCount == 0 || now - lastVolumeKeyAt >= Tokens.RepeatIntervalMs) {
-                lastVolumeKeyAt = now
-                controller.sendKey(keyCode)
-            }
-        }
-        return true
     }
 }
 
@@ -133,17 +139,16 @@ fun AndroidRemoteApp(controller: RemoteController, onClose: () -> Unit) {
         if (!granted) controller.micPressed(hasMicPermission = false)
     }
 
-    val hapticTick: () -> Unit = remember(state.settings.hapticsEnabled, state.settings.hapticStrength, view) {
-        if (!state.settings.hapticsEnabled) {
-            {}
-        } else {
-            val constant = when (state.settings.hapticStrength) {
-                0 -> HapticFeedbackConstants.CLOCK_TICK
-                2 -> HapticFeedbackConstants.LONG_PRESS
-                else -> HapticFeedbackConstants.KEYBOARD_TAP
-            }
-            { view.performHapticFeedback(constant) }
+    val hapticsEnabled = state.settings.hapticsEnabled
+    val hapticStrength = state.settings.hapticStrength
+    val hapticTick: () -> Unit = remember(hapticsEnabled, hapticStrength, view) {
+        val constant = when (hapticStrength) {
+            0 -> HapticFeedbackConstants.CLOCK_TICK
+            2 -> HapticFeedbackConstants.LONG_PRESS
+            else -> HapticFeedbackConstants.KEYBOARD_TAP
         }
+        val tick: () -> Unit = { if (hapticsEnabled) view.performHapticFeedback(constant) }
+        tick
     }
 
     fun onButton(action: ButtonAction, event: PressEvent) {

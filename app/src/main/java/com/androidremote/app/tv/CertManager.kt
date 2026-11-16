@@ -5,6 +5,7 @@ import android.net.Network
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -44,8 +45,13 @@ class TlsConnection(val socket: SSLSocket, val serverCert: X509Certificate) : Cl
     val input: InputStream = socket.inputStream
     val output: OutputStream = socket.outputStream
 
+    /** Closes in the background: closing a TLS socket can write to the network, which is not allowed on the main thread. */
     override fun close() {
-        runCatching { socket.close() }
+        closer.execute { runCatching { socket.close() } }
+    }
+
+    private companion object {
+        val closer = Dispatchers.IO.asExecutor()
     }
 }
 
@@ -55,7 +61,7 @@ class TlsConnection(val socket: SSLSocket, val serverCert: X509Certificate) : Cl
  */
 suspend fun <T> Closeable.cancellableIo(block: () -> T): T = coroutineScope {
     var finished = false
-    val watcher = launch {
+    val watcher = launch(Dispatchers.IO) {
         try {
             awaitCancellation()
         } finally {

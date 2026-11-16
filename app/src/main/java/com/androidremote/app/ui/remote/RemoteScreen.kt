@@ -234,7 +234,8 @@ private fun DevicePill(state: RemoteUiState, onClick: () -> Unit) {
     val alpha = if (state.link == LinkState.Connecting) pulseAlpha() else 1f
     val openLabel = stringResource(R.string.cd_devices)
 
-    Box(Modifier.alpha(alpha)) {
+    // Sized to hold both parts: the pulse's alpha layer clips to these bounds.
+    Box(Modifier.size(scale.dp(dropdown.right - pill.left), scale.dp(maxOf(pill.height, dropdown.height))).alpha(alpha)) {
         Box(
             Modifier
                 .size(scale.dp(pill.width), scale.dp(pill.height))

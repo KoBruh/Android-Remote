@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.EOFException
 
@@ -163,34 +164,35 @@ class RemoteClient(private val certManager: CertManager) {
      *   (see [isCertMismatch]) or the TV no longer accepts this phone (pair again).
      * @throws java.io.IOException if the TV is unreachable or the connection dropped.
      */
-    suspend fun run(host: String, port: Int, pinnedFingerprint: String, network: Network?): Nothing {
-        val connection = certManager.connect(host, port, pinnedFingerprint, network)
-        val current = Session(Channel(Channel.UNLIMITED), RemoteProtocol(ENABLE_IME, ENABLE_VOICE))
-        try {
-            // The TV pings every 5 s when idle. Silence for this long means the connection is
-            // dead (e.g. the TV went to deep standby), so give up instead of keeping a zombie.
-            connection.socket.soTimeout = IDLE_TIMEOUT_MS
-            coroutineScope {
-                val writer = launch(Dispatchers.IO) {
-                    for (msg in current.outbox) Framing.write(connection.output, msg.toByteArray())
+    suspend fun run(host: String, port: Int, pinnedFingerprint: String, network: Network?): Nothing =
+        withContext(Dispatchers.IO) {
+            val connection = certManager.connect(host, port, pinnedFingerprint, network)
+            val current = Session(Channel(Channel.UNLIMITED), RemoteProtocol(ENABLE_IME, ENABLE_VOICE))
+            try {
+                // The TV pings every 5 s when idle. Silence for this long means the connection is
+                // dead (e.g. the TV went to deep standby), so give up instead of keeping a zombie.
+                connection.socket.soTimeout = IDLE_TIMEOUT_MS
+                coroutineScope {
+                    val writer = launch {
+                        for (msg in current.outbox) Framing.write(connection.output, msg.toByteArray())
+                    }
+                    session = current
+                    try {
+                        connection.cancellableIo { readLoop(connection, current) }
+                    } finally {
+                        // Close first: it unblocks a writer stuck on a dead connection.
+                        connection.close()
+                        writer.cancel()
+                    }
                 }
-                session = current
-                try {
-                    connection.cancellableIo { readLoop(connection, current) }
-                } finally {
-                    // Close first: it unblocks a writer stuck on a dead connection.
-                    connection.close()
-                    writer.cancel()
-                }
+            } finally {
+                if (session === current) session = null
+                connection.close()
+                current.outbox.close()
+                current.voiceBegin?.complete(null)
+                _state.value = TvState()
             }
-        } finally {
-            if (session === current) session = null
-            connection.close()
-            current.outbox.close()
-            current.voiceBegin?.complete(null)
-            _state.value = TvState()
         }
-    }
 
     /** Blocking: handles every message of the TV until the connection ends. */
     private fun readLoop(connection: TlsConnection, current: Session): Nothing {

@@ -276,6 +276,15 @@ class RemoteController(
         }
         if (wakeJob?.isActive == true) return
         wakeJob = scope.launch {
+            // Pressed while the app is still connecting (e.g. right after opening it): the TV is
+            // most likely reachable, so wait a moment and treat it as a normal power press.
+            if (_state.value.busy) {
+                val connected = withTimeoutOrNull(CONNECT_GRACE_MS) { client.state.first { it.connected } }
+                if (connected != null) {
+                    client.sendKey(KeyCodes.POWER)
+                    return@launch
+                }
+            }
             waking = true
             try {
                 val mac = WakeOnLan.parseMac(device.mac)
@@ -418,6 +427,9 @@ class RemoteController(
         /** Reconnect backoff: 0.5 s doubling up to 5 s. */
         const val MIN_BACKOFF_MS = 500L
         const val MAX_BACKOFF_MS = 5_000L
+
+        /** How long a power press waits for a connection attempt that is already running. */
+        const val CONNECT_GRACE_MS = 1_500L
 
         /** After Wake-on-LAN: retry every second for up to 20 s. */
         const val WAKE_RETRY_MS = 1_000L
