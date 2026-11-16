@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep in sync with Tokens.Background (startup window and launcher icon). -->
+    <color name="background">#333537</color>
+    <color name="icon_disc">#1B1B1B</color>
+    <color name="icon_center">#6DD58C</color>
+</resources>

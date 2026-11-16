@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Android Remote</string>
+    <string name="no_tv">No TV</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="got_it">Got it</string>
+
+    <!-- Button descriptions for screen readers -->
+    <string name="cd_close">Close</string>
+    <string name="cd_power">Power</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_home">Home</string>
+    <string name="cd_mic">Voice search, hold to talk</string>
+    <string name="cd_mute">Mute</string>
+    <string name="cd_volume_down">Volume down</string>
+    <string name="cd_volume_up">Volume up</string>
+    <string name="cd_dpad">Direction pad</string>
+    <string name="cd_devices">Choose TV</string>
+    <string name="cd_selected">Selected</string>
+
+    <!-- Device menu -->
+    <string name="menu_paired">Paired</string>
+    <string name="menu_found">Found on Wi-Fi</string>
+    <string name="menu_pair_new">Pair new</string>
+    <string name="menu_settings">Settings</string>
+
+    <!-- Status messages -->
+    <string name="msg_no_tv">Pair a TV first.</string>
+    <string name="msg_no_mac">TV is not reachable. Set its MAC address in Settings to wake it.</string>
+    <string name="msg_wake_failed">TV didn\'t wake. Check Networked standby is on.</string>
+    <string name="msg_local_network_denied">Allow access to nearby devices so the remote can reach your TV.</string>
+
+    <!-- Pairing -->
+    <string name="pair_title">Pair TV</string>
+    <string name="pair_address_hint">Enter the TV\'s IP address. You find it on the TV under Settings → Network &amp; Internet.</string>
+    <string name="pair_address_label">IP address</string>
+    <string name="pair_connect">Connect</string>
+    <string name="pair_code_hint">Enter the code shown on the TV.</string>
+    <string name="pair_code_label">Code</string>
+    <string name="pair_confirm">Pair</string>
+    <string name="pair_error_connect">Couldn\'t reach the TV. Check that it is on and on the same Wi-Fi.</string>
+    <string name="pair_error_code">That code doesn\'t match. Try again.</string>
+    <string name="pair_error_rejected">Pairing was cancelled by the TV. Try again.</string>
+
+    <!-- Re-pair prompt -->
+    <string name="repair_title">Pair again?</string>
+    <string name="repair_cert_changed">%1$s has a new identity, for example after a factory reset. Pair again to keep using it.</string>
+    <string name="repair_rejected">%1$s no longer accepts this phone. Pair again to keep using it.</string>
+
+    <!-- Settings -->
+    <string name="tip_standby_title">Waking the TV</string>
+    <string name="tip_standby_body">The Power button can only wake the TV if Networked standby is on in the TV\'s settings and the TV was turned off with a short press of Power. A TV that was fully shut down cannot be woken by an app.</string>
+    <string name="settings_tvs">TVs</string>
+    <string name="settings_no_tvs">No TV paired yet. Tap the device pill on the remote to pair one.</string>
+    <string name="settings_mac">MAC address (for wake-up)</string>
+    <string name="settings_mac_hint">TV Settings → Device Preferences → About → Status → Wi-Fi MAC address. A value filled in at pairing may belong to another interface: check it if the TV doesn\'t wake.</string>
+    <string name="settings_mac_invalid">Not a MAC address. Use the form AA:BB:CC:DD:EE:FF.</string>
+    <string name="settings_repair">Pair again</string>
+    <string name="settings_forget">Forget</string>
+    <string name="settings_feel">Remote</string>
+    <string name="settings_haptics">Vibrate on press</string>
+    <string name="haptic_light">Light</string>
+    <string name="haptic_medium">Medium</string>
+    <string name="haptic_strong">Strong</string>
+    <string name="settings_keep_awake">Keep screen awake while open</string>
+    <string name="settings_volume_keys">Volume keys control the TV</string>
+    <string name="settings_debug">Debug</string>
+    <string name="settings_overlay">Show reference screenshot overlay</string>
+    <string name="about">Android Remote %1$s. TV protocol ported from androidtvremote2 (Apache-2.0). Icons: Material Symbols (Apache-2.0).</string>
+</resources>
