@@ -24,6 +24,24 @@ class NetworkMonitor(context: Context) {
         return network.takeIf { capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) }
     }
 
+    /** One line per network the phone is on, for [Diagnostics]: transports (a VPN shows up here), interface and addresses. */
+    @Suppress("DEPRECATION") // allNetworks: fine for a one-off report.
+    fun describe(): List<String> {
+        val active = connectivity.activeNetwork
+        val transports = listOf(
+            NetworkCapabilities.TRANSPORT_WIFI to "WIFI",
+            NetworkCapabilities.TRANSPORT_CELLULAR to "CELLULAR",
+            NetworkCapabilities.TRANSPORT_VPN to "VPN",
+            NetworkCapabilities.TRANSPORT_ETHERNET to "ETHERNET",
+        )
+        return connectivity.allNetworks.map { network ->
+            val capabilities = connectivity.getNetworkCapabilities(network)
+            val link = connectivity.getLinkProperties(network)
+            val names = transports.filter { capabilities?.hasTransport(it.first) == true }.map { it.second }
+            "network $network${if (network == active) " (active)" else ""}: $names ${link?.interfaceName} ${link?.linkAddresses}"
+        }.ifEmpty { listOf("no network") }
+    }
+
     /** Emits the Wi-Fi network to use whenever it changes: the newest one available, or null when there is none. */
     fun wifiNetworks(): Flow<Network?> = callbackFlow {
         // During a hand-over the new network appears before the old one is lost, so keep track of all of them.

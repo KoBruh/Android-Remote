@@ -8,6 +8,7 @@ import com.androidremote.app.data.Settings
 import com.androidremote.app.data.StoredData
 import com.androidremote.app.tv.CertManager
 import com.androidremote.app.tv.CertSubject
+import com.androidremote.app.tv.Diagnostics
 import com.androidremote.app.tv.DiscoveredTv
 import com.androidremote.app.tv.Discovery
 import com.androidremote.app.tv.KeyCodes
@@ -16,10 +17,12 @@ import com.androidremote.app.tv.NetworkMonitor
 import com.androidremote.app.tv.PairingClient
 import com.androidremote.app.tv.PairingSession
 import com.androidremote.app.tv.RemoteClient
+import com.androidremote.app.tv.Trace
 import com.androidremote.app.tv.TvState
 import com.androidremote.app.tv.VoiceRecorder
 import com.androidremote.app.tv.WakeOnLan
 import com.androidremote.app.tv.isCertMismatch
+import com.androidremote.app.tv.logcatTrace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +120,7 @@ class RemoteController(
     private val pairing: PairingClient,
     private val discovery: Discovery,
     private val networks: NetworkMonitor,
+    private val diagnostics: Diagnostics,
 ) {
     private val _state = MutableStateFlow(RemoteUiState())
     val state: StateFlow<RemoteUiState> = _state.asStateFlow()
@@ -368,9 +372,14 @@ class RemoteController(
     /**
      * Starts pairing with the TV at [host]: the TV shows its code.
      *
+     * @param trace told about every stage of the attempt (see [PairingClient.start]).
      * @throws java.io.IOException if the TV cannot be reached.
      */
-    suspend fun startPairing(host: String): PairingSession = pairing.start(host, network ?: networks.currentWifi())
+    suspend fun startPairing(host: String, trace: Trace = {}): PairingSession =
+        pairing.start(host, network ?: networks.currentWifi(), logcatTrace(trace))
+
+    /** Probes every layer between this phone and the TV at [host] and returns a text report (debug builds). */
+    suspend fun diagnose(host: String): String = diagnostics.run(host, network ?: networks.currentWifi())
 
     /**
      * Finishes pairing with the code from the TV's screen, then saves and selects the TV.

@@ -1,10 +1,15 @@
 package com.androidremote.app.ui.pairing
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
@@ -19,19 +24,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import com.androidremote.app.BuildConfig
 import com.androidremote.app.R
 import com.androidremote.app.RemoteController
 import com.androidremote.app.tv.DiscoveredTv
 import com.androidremote.app.tv.InvalidPairingCodeException
 import com.androidremote.app.tv.PairingSecret
 import com.androidremote.app.tv.PairingSession
+import com.androidremote.app.tv.describe
 import com.androidremote.app.ui.theme.Tokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.util.Collections
+
+/** Debug builds: the failure report, selectable and with a button to copy it. */
+@Composable
+private fun DebugReport(report: String) {
+    val context = LocalContext.current
+    Spacer(Modifier.height(Tokens.ItemSpacing))
+    TextButton(onClick = {
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("Android Remote report", report))
+    }) { Text(stringResource(R.string.debug_copy_report)) }
+    SelectionContainer {
+        Text(report, color = Tokens.TextSecondary, fontFamily = FontFamily.Monospace, fontSize = Tokens.DebugReportTextSize)
+    }
+}
 
 /** Which TV a pairing dialog is for. With a null [host] the dialog first asks for the IP address. */
 data class PairingTarget(val host: String? = null, val discovered: DiscoveredTv? = null)
@@ -50,19 +74,28 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<Int?>(null) }
     var session by remember { mutableStateOf<PairingSession?>(null) }
+    // Debug builds: what exactly went wrong, stage by stage, plus a probe of every layer.
+    var report by remember { mutableStateOf<String?>(null) }
 
     fun connect() {
         step = Step.Connecting
         error = null
+        report = null
         scope.launch {
+            val stages = Collections.synchronizedList(mutableListOf<String>())
             try {
-                session = controller.startPairing(host.trim())
+                session = controller.startPairing(host.trim()) { stages += it }
                 step = Step.Code
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 error = R.string.pair_error_connect
                 step = Step.Address
+                if (BuildConfig.DEBUG) {
+                    val attempt = "== Pairing attempt ==\n${e.describe()}\n-- stages\n${stages.toList().joinToString("\n")}\n"
+                    report = attempt + "(probing...)"
+                    report = attempt + controller.diagnose(host.trim())
+                }
             }
         }
     }
@@ -81,10 +114,11 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                 error = R.string.pair_error_code
                 code = ""
                 step = Step.Code
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 // The TV closed the pairing (wrong code sent, timeout or Cancel pressed): start over.
                 current.close()
                 session = null
+                if (BuildConfig.DEBUG) report = "== Pairing code step ==\n${e.describe()}"
                 error = R.string.pair_error_rejected
                 code = ""
                 step = Step.Address
@@ -100,7 +134,7 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
         containerColor = Tokens.Surface,
         title = { Text(stringResource(R.string.pair_title)) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 when (step) {
                     Step.Address -> {
                         Text(stringResource(R.string.pair_address_hint))
@@ -139,6 +173,7 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                     Spacer(Modifier.height(Tokens.ItemSpacing))
                     Text(stringResource(it), color = Tokens.Error)
                 }
+                report?.let { DebugReport(it) }
             }
         },
         confirmButton = {

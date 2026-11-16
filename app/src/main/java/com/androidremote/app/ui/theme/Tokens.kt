@@ -3,7 +3,9 @@ package com.androidremote.app.ui.theme
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.androidremote.app.data.HapticStrength
 
 /** A rectangle in reference pixels (see [Tokens.RefWidthPx]), origin at the top-left of the screen. */
@@ -269,6 +271,9 @@ object Tokens {
 
     /** Size of the small TV icon on a Settings card. */
     val ListIconSize: Dp = 20.dp
+
+    /** Text size of the failure report shown in debug builds when pairing fails. */
+    val DebugReportTextSize: TextUnit = 11.sp
 
     // ---- Feel ------------------------------------------------------------------------------
 

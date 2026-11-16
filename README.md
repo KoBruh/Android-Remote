@@ -17,9 +17,11 @@ APKs are built by GitHub Actions on every push.
 3. Download `android-remote-release` (or `android-remote-debug`), unzip it and open the APK.
    Android asks once to allow your browser or file manager to install apps.
 
-Debug and release share the same app ID, so only one can be installed at a time. They are
-signed with different keys once you [add your own keystore](#release-signing): uninstall one
-before installing the other. The debug build is larger and has the reference overlay.
+Debug and release share the same app ID, so only one can be installed at a time. Both are
+signed with the debug key in `app/debug.keystore` until you
+[add your own keystore](#release-signing), so a new build installs over the old one and
+keeps its pairing. The debug build is larger and has the reference overlay and the pairing
+failure report.
 
 ## First use
 
@@ -30,6 +32,14 @@ before installing the other. The debug build is larger and has the reference ove
 3. The TV shows a 6-character code. Type it in. Done: the pill turns green.
 
 The app reconnects by itself afterwards. Pairing again is only needed if the TV is reset.
+
+### If pairing fails
+
+Install the **debug** APK and try again. When pairing fails, the dialog shows a report:
+the exception, each stage of the attempt (TCP connect, TLS handshake, pairing messages),
+and a probe of every layer (permissions, networks, both TV ports over both routes, the
+client key, the TLS handshake). **Copy report** puts it on the clipboard. The same lines go
+to Logcat under the tag `AndroidRemote`.
 
 ### Waking the TV
 
@@ -161,8 +171,8 @@ Then on GitHub: **Settings → Secrets and variables → Actions → New reposit
 | `KEY_PASSWORD` | the key password (the same as the keystore password unless you set another) |
 
 Keep `release.jks` and its password somewhere safe: updates must be signed with the same
-key. The first APK signed with the new key cannot replace one signed with the debug key;
-uninstall the old one once (you will have to pair the TV again).
+key. The first release APK signed with the new key cannot replace one signed with the debug
+key; uninstall the old one once (you will have to pair the TV again).
 
 ## Credits
 

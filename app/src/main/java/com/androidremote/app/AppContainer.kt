@@ -4,6 +4,7 @@ import android.content.Context
 import com.androidremote.app.data.DeviceStore
 import com.androidremote.app.data.Settings
 import com.androidremote.app.tv.CertManager
+import com.androidremote.app.tv.Diagnostics
 import com.androidremote.app.tv.Discovery
 import com.androidremote.app.tv.NetworkMonitor
 import com.androidremote.app.tv.PairingClient
@@ -22,6 +23,7 @@ class AppContainer(context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val certManager = CertManager()
+    private val networks = NetworkMonitor(context)
 
     val controller = RemoteController(
         scope = scope,
@@ -29,7 +31,8 @@ class AppContainer(context: Context) {
         client = RemoteClient(certManager),
         pairing = PairingClient(certManager),
         discovery = Discovery(context),
-        networks = NetworkMonitor(context),
+        networks = networks,
+        diagnostics = Diagnostics(context, certManager, networks),
     )
 
     init {

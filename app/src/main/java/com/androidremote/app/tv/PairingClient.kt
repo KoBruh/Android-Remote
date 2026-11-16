@@ -24,15 +24,18 @@ class PairingClient(private val certManager: CertManager) {
     /**
      * Connects and runs the handshake up to the point where the TV shows its 6-character code.
      *
+     * @param trace told about every stage: TCP connect, TLS handshake, each pairing message and its reply.
      * @throws IOException if the TV cannot be reached or rejects the request.
      */
-    suspend fun start(host: String, network: Network?): PairingSession =
+    suspend fun start(host: String, network: Network?, trace: Trace = {}): PairingSession =
         withContext(Dispatchers.IO) {
-            val connection = certManager.connect(host, PAIRING_PORT, pinnedFingerprint = null, network = network)
-            val session = PairingSession(connection, certManager.clientCertificate())
+            // Pairing trusts whatever certificate the TV presents (no pin): it is pinned afterwards.
+            val connection = certManager.connect(host, PAIRING_PORT, pinnedFingerprint = null, network = network, trace = trace)
+            val session = PairingSession(connection, certManager.clientCertificate(), trace)
             try {
                 session.begin()
             } catch (e: Throwable) {
+                trace("FAILED in the pairing handshake:\n  ${e.describe()}")
                 session.close()
                 throw e
             }
@@ -48,6 +51,7 @@ class PairingClient(private val certManager: CertManager) {
 class PairingSession internal constructor(
     private val connection: TlsConnection,
     private val clientCert: X509Certificate,
+    private val trace: Trace,
 ) : Closeable {
 
     /** The certificate the TV presented. Its fingerprint is pinned once pairing succeeds. */
@@ -56,7 +60,7 @@ class PairingSession internal constructor(
     internal suspend fun begin() {
         connection.socket.soTimeout = RESPONSE_TIMEOUT_MS
 
-        val ack = exchange(newMessage().setPairingRequest(
+        val ack = exchange("PairingRequest", newMessage().setPairingRequest(
             PairingRequest.newBuilder()
                 .setServiceName(SERVICE_NAME)
                 .setClientName(CertManager.CLIENT_NAME),
@@ -66,14 +70,14 @@ class PairingSession internal constructor(
         val encoding = Options.Encoding.newBuilder()
             .setType(Options.Encoding.EncodingType.ENCODING_TYPE_HEXADECIMAL)
             .setSymbolLength(PairingSecret.CODE_LENGTH)
-        val options = exchange(newMessage().setOptions(
+        val options = exchange("Options", newMessage().setOptions(
             Options.newBuilder()
                 .setPreferredRole(Options.RoleType.ROLE_TYPE_INPUT)
                 .addInputEncodings(encoding),
         ))
         if (!options.hasOptions()) throw IOException("Unexpected reply to the pairing options")
 
-        val configured = exchange(newMessage().setConfiguration(
+        val configured = exchange("Configuration", newMessage().setConfiguration(
             Configuration.newBuilder()
                 .setClientRole(Options.RoleType.ROLE_TYPE_INPUT)
                 .setEncoding(encoding),
@@ -89,23 +93,33 @@ class PairingSession internal constructor(
      */
     suspend fun finish(code: String) {
         val secret = PairingSecret.compute(clientCert, serverCert, code.trim())
-        val ack = exchange(newMessage().setSecret(
+        val ack = exchange("Secret", newMessage().setSecret(
             Secret.newBuilder()
                 .setSecret(ByteString.copyFrom(secret)),
         ))
         if (!ack.hasSecretAck()) throw IOException("Unexpected reply to the pairing secret")
     }
 
-    private suspend fun exchange(message: OuterMessage.Builder): OuterMessage = connection.cancellableIo {
+    private suspend fun exchange(name: String, message: OuterMessage.Builder): OuterMessage = connection.cancellableIo {
         Framing.write(connection.output, message.build().toByteArray())
-        val raw = Framing.read(connection.input) ?: throw EOFException("TV closed the connection")
+        trace("$name sent")
+        val raw = Framing.read(connection.input) ?: throw EOFException("TV closed the connection after $name")
         val reply = try {
             OuterMessage.parseFrom(raw)
         } catch (e: InvalidProtocolBufferException) {
-            throw IOException("Unreadable reply from the TV", e)
+            throw IOException("Unreadable reply to $name from the TV", e)
         }
-        if (reply.status != OuterMessage.Status.STATUS_OK) throw IOException("TV answered with ${reply.status}")
+        trace("Reply to $name: status ${reply.status}, ${replyKind(reply)}")
+        if (reply.status != OuterMessage.Status.STATUS_OK) throw IOException("TV answered $name with ${reply.status}")
         reply
+    }
+
+    private fun replyKind(reply: OuterMessage): String = when {
+        reply.hasPairingRequestAck() -> "PairingRequestAck"
+        reply.hasOptions() -> "Options"
+        reply.hasConfigurationAck() -> "ConfigurationAck"
+        reply.hasSecretAck() -> "SecretAck"
+        else -> "no known payload"
     }
 
     private fun newMessage(): OuterMessage.Builder =
