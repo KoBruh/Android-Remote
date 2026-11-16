@@ -21,6 +21,14 @@ android {
     }
 
     signingConfigs {
+        // A fixed debug key (standard Android debug credentials, not a secret) so that every CI
+        // build is signed the same way and installs over the previous one without uninstalling.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = file(releaseKeystore)

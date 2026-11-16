@@ -7,3 +7,5 @@ local.properties
 captures/
 *.jks
 *.keystore
+# The shared debug key is public on purpose (see app/build.gradle.kts).
+!app/debug.keystore
