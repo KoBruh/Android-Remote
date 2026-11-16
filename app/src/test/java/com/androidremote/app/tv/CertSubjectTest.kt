@@ -1,0 +1,38 @@
+package com.androidremote.app.tv
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/** Mirrors androidtvremote2's test_parse_name_and_mac. */
+class CertSubjectTest {
+
+    @Test
+    fun `name and MAC come from the common name`() {
+        assertEquals(
+            "SHIELD Android TV" to "AA:BB:CC:DD:EE:FF",
+            CertManager.parseNameAndMac("CN=atvremote/darcy/darcy/SHIELD Android TV/AA:BB:CC:DD:EE:FF"),
+        )
+    }
+
+    @Test
+    fun `name comes from the dnQualifier when there is one`() {
+        assertEquals(
+            "Nexus Player" to "AA:BB:CC:DD:EE:FF",
+            CertManager.parseNameAndMac("CN=atvremote/AA:BB:CC:DD:EE:FF,DNQ=fugu/fugu/Nexus Player"),
+        )
+    }
+
+    @Test
+    fun `escaped characters in a name are unescaped`() {
+        assertEquals(
+            "Living Room, TV" to "AA:BB:CC:DD:EE:FF",
+            CertManager.parseNameAndMac("CN=atvremote/x/x/Living Room\\, TV/AA:BB:CC:DD:EE:FF,O=Example"),
+        )
+    }
+
+    @Test
+    fun `a subject without separators or common name still parses`() {
+        assertEquals("plain" to "plain", CertManager.parseNameAndMac("CN=plain"))
+        assertEquals("Nexus Player" to "", CertManager.parseNameAndMac("DNQ=fugu/fugu/Nexus Player"))
+    }
+}
