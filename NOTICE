@@ -1,0 +1,52 @@
+Android Remote
+==============
+
+This app includes work derived from the following projects.
+
+androidtvremote2
+  https://github.com/tronikos/androidtvremote2
+  Copyright the androidtvremote2 authors. Licensed under the Apache License, Version 2.0.
+  The pairing and remote-control protocol code in app/src/main/java/com/androidremote/app/tv/
+  (Framing.kt, PairingClient.kt, RemoteClient.kt and the certificate-subject parsing in
+  CertManager.kt) is a Kotlin port of its Python implementation (base.py, pairing.py,
+  remote.py, androidtv_remote.py), ported from commit 387de891bd7d0cacf44ede7841470db153c53009.
+  app/src/main/proto/polo.proto and remotemessage.proto are copied from it;
+  remotemessage.proto has two Java options added.
+
+Google TV pairing protocol
+  https://android.googlesource.com/platform/external/google-tv-pairing-protocol/
+  Copyright 2009 Google Inc. Licensed under the Apache License, Version 2.0.
+  polo.proto originates from this project.
+
+androidtv-remote
+  https://github.com/louis49/androidtv-remote
+  Copyright (c) 2021 louis49. Licensed under the MIT License (text below).
+  remotemessage.proto and the OuterMessage change in polo.proto originate from this project.
+
+Material Symbols
+  https://github.com/google/material-design-icons
+  Copyright Google LLC. Licensed under the Apache License, Version 2.0.
+  The icon paths in app/src/main/java/com/androidremote/app/ui/icons/Icons.kt are copied
+  from Material Symbols (Rounded).
+
+The Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
+
+MIT License (androidtv-remote)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
