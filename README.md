@@ -85,32 +85,43 @@ The reference screenshot is drawn half-transparent over the remote.
 
 ```
 app/src/main/java/com/androidremote/app/
-  MainActivity.kt        activity, root composable, hardware volume keys
+  MainActivity.kt        activity: edge-to-edge, lifecycle, hardware volume keys
   RemoteController.kt    the app's brain: connection upkeep, power/wake, voice, one state flow
   AppContainer.kt        builds the long-lived objects once per process (manual DI)
+  RemoteApp.kt           Application class and the `Context.remoteController` shortcut
+  ui/AppRoot.kt          root composable: screens, dialogs, button press -> action
   ui/theme/Tokens.kt     every colour, size, radius and timing
-  ui/remote/             RemoteScreen (button list, layout), Dpad, RemoteButton
+  ui/remote/             RemoteScreen (button list, layout), Dpad, RemoteButton, Presses
   ui/devices/            dropdown: paired + discovered TVs, Pair new, Settings
-  ui/pairing/            pairing dialog
+  ui/pairing/            pairing dialog, "Pair again?" dialog
   ui/settings/           settings screen
   ui/icons/Icons.kt      hand-copied Material Symbols
-  tv/                    protocol: Framing, CertManager, PairingClient, RemoteClient,
-                         WakeOnLan, Discovery, NetworkMonitor, VoiceRecorder
+  tv/                    protocol: Framing, Tls, CertManager, CertSubject, PairingClient,
+                         PairingSecret, RemoteClient, RemoteProtocol, Keys, Voice,
+                         WakeOnLan, Discovery, NetworkMonitor
   data/DeviceStore.kt    paired TVs and settings (DataStore)
 app/src/main/proto/      polo.proto (pairing), remotemessage.proto (control)
 ```
 
-The UI only talks to `RemoteController`, which lives for the whole process. Later additions
-(Quick Settings tile, widget, notification remote, keyboard, app shortcuts) can use the same
-controller without touching the screens.
+The UI only talks to `RemoteController`, which lives for the whole process and knows nothing
+about the UI. That is the hook for later additions (Quick Settings tile, widget, notification
+remote, keyboard, app shortcuts):
+
+- `context.remoteController` gives any component the same instance.
+- `acquire()` / `release()` keep the TV connection alive for as long as someone needs it.
+  The activity holds it while it is visible.
+- One-shot callers use suspend functions that hold the connection themselves, for example
+  `togglePowerOrWake()`, which returns a `PowerResult` a tile can show.
+- `sendKey(code, direction)` sends any Android key code.
 
 ### Protocol notes
 
 - Pairing runs on TLS port **6467**, control on TLS port **6466**. Messages are protobufs
   with a varint length prefix.
 - The phone's RSA-2048 key and self-signed certificate are generated in AndroidKeyStore on
-  first run and never leave it. The TV's certificate is trusted on first use and pinned by
-  its SHA-256 fingerprint; a different certificate later triggers a "Pair again?" prompt.
+  first run and never leave it. The TV's certificate is trusted on first use: the one it
+  presents on the first control connection after pairing is pinned by its SHA-256
+  fingerprint, and a different certificate later triggers a "Pair again?" prompt.
 - The TV pings every 5 seconds and every ping is answered. If the TV is silent for 16
   seconds the connection is dropped and re-established with a 0.5 s to 5 s backoff. The
   connection only lives while the app is in the foreground.

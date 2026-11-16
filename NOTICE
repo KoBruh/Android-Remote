@@ -7,9 +7,10 @@ androidtvremote2
   https://github.com/tronikos/androidtvremote2
   Copyright the androidtvremote2 authors. Licensed under the Apache License, Version 2.0.
   The pairing and remote-control protocol code in app/src/main/java/com/androidremote/app/tv/
-  (Framing.kt, PairingClient.kt, RemoteClient.kt and the certificate-subject parsing in
-  CertManager.kt) is a Kotlin port of its Python implementation (base.py, pairing.py,
-  remote.py, androidtv_remote.py), ported from commit 387de891bd7d0cacf44ede7841470db153c53009.
+  (Framing.kt, PairingClient.kt, PairingSecret.kt, RemoteClient.kt, RemoteProtocol.kt,
+  CertSubject.kt and the chunking in Voice.kt) is a Kotlin port of its Python implementation
+  (base.py, pairing.py, remote.py, androidtv_remote.py), ported from commit
+  387de891bd7d0cacf44ede7841470db153c53009.
   app/src/main/proto/polo.proto and remotemessage.proto are copied from it;
   remotemessage.proto has two Java options added.
 
