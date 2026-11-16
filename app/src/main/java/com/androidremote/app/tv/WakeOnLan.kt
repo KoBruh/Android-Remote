@@ -47,38 +47,32 @@ object WakeOnLan {
 
     /**
      * Sends the magic packet for [mac] to 255.255.255.255 and to every local subnet's broadcast
-     * address, on ports 9 and 7, three times, 100 ms apart.
+     * address, on ports 9 and 7, three times, 100 ms apart. Failures are ignored: there is no
+     * reply to a magic packet, so the caller finds out by trying to reconnect.
      *
      * @param bindSocket binds the socket to the Wi-Fi network, so the packet does not leave over mobile data.
-     * @return false if nothing could be sent.
      */
-    suspend fun send(mac: ByteArray, bindSocket: (DatagramSocket) -> Unit = {}): Boolean = withContext(Dispatchers.IO) {
+    suspend fun send(mac: ByteArray, bindSocket: (DatagramSocket) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
         val packet = magicPacket(mac)
         val targets = buildSet {
             add(InetAddress.getByAddress(byteArrayOf(-1, -1, -1, -1)))
             addAll(localBroadcastAddresses())
         }
-        var sent = false
         try {
             DatagramSocket().use { socket ->
                 socket.broadcast = true
                 runCatching { bindSocket(socket) }
                 repeat(REPEATS) { round ->
                     for (target in targets) for (port in PORTS) {
-                        try {
-                            socket.send(DatagramPacket(packet, packet.size, target, port))
-                            sent = true
-                        } catch (_: IOException) {
-                            // One target failing (e.g. no route) must not stop the others.
-                        }
+                        // One target failing (e.g. no route) must not stop the others.
+                        runCatching { socket.send(DatagramPacket(packet, packet.size, target, port)) }
                     }
                     if (round < REPEATS - 1) delay(REPEAT_GAP_MS)
                 }
             }
         } catch (_: IOException) {
-            // No socket: nothing sent.
+            // No socket could be opened: nothing sent.
         }
-        sent
     }
 
     private fun localBroadcastAddresses(): List<InetAddress> = try {

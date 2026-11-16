@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -41,9 +42,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.unit.dp
 import com.androidremote.app.BuildConfig
 import com.androidremote.app.R
+import com.androidremote.app.data.HapticStrength
 import com.androidremote.app.data.PairedDevice
 import com.androidremote.app.data.Settings
 import com.androidremote.app.ui.icons.Icons
@@ -70,21 +71,21 @@ fun SettingsScreen(
             .background(Tokens.Background)
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = Tokens.ScreenPadding, vertical = Tokens.LineSpacing),
+        verticalArrangement = Arrangement.spacedBy(Tokens.ItemSpacing),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(Icons.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = Tokens.BottomIcon)
+                Icon(Icons.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = Tokens.TextPrimary)
             }
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.menu_settings), style = MaterialTheme.typography.titleLarge, color = Tokens.BottomIcon)
+            Spacer(Modifier.width(Tokens.LineSpacing))
+            Text(stringResource(R.string.menu_settings), style = MaterialTheme.typography.titleLarge, color = Tokens.TextPrimary)
         }
 
         if (!settings.standbyTipDismissed) {
             Card {
                 Text(stringResource(R.string.tip_standby_title), style = MaterialTheme.typography.titleMedium, color = Tokens.Accent)
-                Text(stringResource(R.string.tip_standby_body), color = Tokens.BottomIcon)
+                Text(stringResource(R.string.tip_standby_body), color = Tokens.TextPrimary)
                 TextButton(
                     onClick = { onSettingsChange { it.copy(standbyTipDismissed = true) } },
                     modifier = Modifier.align(Alignment.End),
@@ -106,13 +107,12 @@ fun SettingsScreen(
                 onSettingsChange { it.copy(hapticsEnabled = on) }
             }
             if (settings.hapticsEnabled) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val labels = listOf(R.string.haptic_light, R.string.haptic_medium, R.string.haptic_strong)
-                    labels.forEachIndexed { strength, label ->
+                Row(horizontalArrangement = Arrangement.spacedBy(Tokens.LineSpacing)) {
+                    for (strength in HapticStrength.entries) {
                         FilterChip(
                             selected = settings.hapticStrength == strength,
                             onClick = { onSettingsChange { it.copy(hapticStrength = strength) } },
-                            label = { Text(stringResource(label)) },
+                            label = { Text(stringResource(strength.label)) },
                         )
                     }
                 }
@@ -139,9 +139,16 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodySmall,
             color = Tokens.TextSecondary,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Tokens.LineSpacing))
     }
 }
+
+private val HapticStrength.label: Int
+    get() = when (this) {
+        HapticStrength.Light -> R.string.haptic_light
+        HapticStrength.Medium -> R.string.haptic_medium
+        HapticStrength.Strong -> R.string.haptic_strong
+    }
 
 @Composable
 private fun DeviceCard(device: PairedDevice, onSetMac: (String) -> Boolean, onRepair: () -> Unit, onForget: () -> Unit) {
@@ -156,10 +163,10 @@ private fun DeviceCard(device: PairedDevice, onSetMac: (String) -> Boolean, onRe
 
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Tv, contentDescription = null, tint = Tokens.BottomIcon, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
+            Icon(Icons.Tv, contentDescription = null, tint = Tokens.TextPrimary, modifier = Modifier.size(Tokens.ListIconSize))
+            Spacer(Modifier.width(Tokens.ItemSpacing))
             Column {
-                Text(device.name, style = MaterialTheme.typography.titleMedium, color = Tokens.BottomIcon)
+                Text(device.name, style = MaterialTheme.typography.titleMedium, color = Tokens.TextPrimary)
                 Text(device.host, style = MaterialTheme.typography.bodySmall, color = Tokens.TextSecondary)
             }
         }
@@ -196,18 +203,18 @@ private fun DeviceCard(device: PairedDevice, onSetMac: (String) -> Boolean, onRe
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = Tokens.TextSecondary, modifier = Modifier.padding(top = 8.dp))
+    Text(text, style = MaterialTheme.typography.labelLarge, color = Tokens.TextSecondary, modifier = Modifier.padding(top = Tokens.LineSpacing))
 }
 
 @Composable
-private fun Card(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun Card(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Tokens.SurfaceCorner))
             .background(Tokens.Surface)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(Tokens.CardPadding),
+        verticalArrangement = Arrangement.spacedBy(Tokens.LineSpacing),
         content = content,
     )
 }
@@ -218,8 +225,8 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = Tokens.BottomIcon, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp))
+        Text(label, color = Tokens.TextPrimary, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(Tokens.ItemSpacing))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }

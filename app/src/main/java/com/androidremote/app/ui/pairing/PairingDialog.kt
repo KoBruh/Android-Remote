@@ -23,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.androidremote.app.R
 import com.androidremote.app.RemoteController
 import com.androidremote.app.tv.DiscoveredTv
@@ -105,7 +104,7 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                 when (step) {
                     Step.Address -> {
                         Text(stringResource(R.string.pair_address_hint))
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(Tokens.ItemSpacing))
                         OutlinedTextField(
                             value = host,
                             onValueChange = { host = it },
@@ -118,7 +117,7 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                     Step.Connecting, Step.Verifying -> CircularProgressIndicator()
                     Step.Code -> {
                         Text(stringResource(R.string.pair_code_hint))
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(Tokens.ItemSpacing))
                         OutlinedTextField(
                             value = code,
                             onValueChange = { input ->
@@ -137,7 +136,7 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                     }
                 }
                 error?.let {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Tokens.ItemSpacing))
                     Text(stringResource(it), color = Tokens.Error)
                 }
             }

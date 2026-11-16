@@ -14,4 +14,5 @@ class RefScale(private val screenWidthDp: Float) {
     fun dp(refPx: Float): Dp = refPxToDp(refPx, screenWidthDp).dp
 }
 
-val LocalRefScale = staticCompositionLocalOf { RefScale(412f) }
+/** Until the remote screen provides the real one: the reference phone, 412 dp wide. */
+val LocalRefScale = staticCompositionLocalOf { RefScale(screenWidthDp = 412f) }

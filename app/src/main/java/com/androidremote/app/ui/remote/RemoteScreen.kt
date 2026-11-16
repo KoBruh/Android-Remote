@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -52,6 +51,7 @@ import com.androidremote.app.R
 import com.androidremote.app.RemoteUiState
 import com.androidremote.app.tv.KeyCodes
 import com.androidremote.app.ui.icons.Icons
+import com.androidremote.app.ui.theme.ButtonStyle
 import com.androidremote.app.ui.theme.LocalRefScale
 import com.androidremote.app.ui.theme.RefRect
 import com.androidremote.app.ui.theme.RefScale
@@ -86,9 +86,9 @@ data class RemoteButtonSpec(
     val hold: HoldBehavior = HoldBehavior.None,
     /** Icon size in reference pixels. */
     val iconSize: Float = Tokens.IconBottom,
-    val fill: Color = Tokens.BottomButtonFill,
-    val stroke: Color = Tokens.BottomButtonStroke,
-    val tint: Color = Tokens.BottomIcon,
+    val style: ButtonStyle = Tokens.BottomButtonStyle,
+    /** Corner radius. Set it to give one button its own shape. */
+    val corner: Dp = Tokens.ButtonCorner,
 )
 
 /**
@@ -99,13 +99,11 @@ data class RemoteButtonSpec(
 val RemoteButtons: List<RemoteButtonSpec> = listOf(
     RemoteButtonSpec(
         icon = Icons.Close, label = R.string.cd_close, bounds = Tokens.CloseButton, anchor = Anchor.Top,
-        action = ButtonAction.Close, iconSize = Tokens.IconClose,
-        fill = Tokens.TopButtonFill, stroke = Tokens.TopButtonStroke, tint = Tokens.TopIcon,
+        action = ButtonAction.Close, iconSize = Tokens.IconClose, style = Tokens.TopButtonStyle,
     ),
     RemoteButtonSpec(
         icon = Icons.Power, label = R.string.cd_power, bounds = Tokens.PowerButton, anchor = Anchor.Top,
-        action = ButtonAction.Power, iconSize = Tokens.IconPower,
-        fill = Tokens.TopButtonFill, stroke = Tokens.TopButtonStroke, tint = Tokens.TopIcon,
+        action = ButtonAction.Power, iconSize = Tokens.IconPower, style = Tokens.TopButtonStyle,
     ),
     RemoteButtonSpec(
         icon = Icons.ArrowBack, label = R.string.cd_back, bounds = Tokens.BackButton, anchor = Anchor.Bottom,
@@ -133,6 +131,12 @@ val RemoteButtons: List<RemoteButtonSpec> = listOf(
     ),
 )
 
+/** Reference-pixel edges of the two button groups: the top row (with the device pill) and the bottom rows. */
+private val TopRowTop = minOf(RemoteButtons.filter { it.anchor == Anchor.Top }.minOf { it.bounds.top }, Tokens.DevicePill.top)
+private val TopRowBottom = maxOf(RemoteButtons.filter { it.anchor == Anchor.Top }.maxOf { it.bounds.bottom }, Tokens.DevicePill.bottom)
+private val BottomRowsTop = RemoteButtons.filter { it.anchor == Anchor.Bottom }.minOf { it.bounds.top }
+private val BottomRowsBottom = RemoteButtons.filter { it.anchor == Anchor.Bottom }.maxOf { it.bounds.bottom }
+
 /**
  * The main screen: a copy of the Google TV remote. Nothing else is visible here; everything
  * else is reached through the device pill.
@@ -159,24 +163,22 @@ fun RemoteScreen(
 
         // The reference positions already leave room for a normal status bar and gesture bar.
         // On phones with taller bars, push the top row down and the bottom rows up just enough.
-        val topRowTop = RemoteButtons.filter { it.anchor == Anchor.Top }.minOf { it.bounds.top }
-            .coerceAtMost(Tokens.DevicePill.top)
-        val bottomRowsBottom = RemoteButtons.filter { it.anchor == Anchor.Bottom }.maxOf { it.bounds.bottom }
-        val topShift = (statusBar + scale.dp(Tokens.TopRowMinGapBelowStatusBar) - scale.dp(topRowTop)).coerceAtLeast(0.dp)
-        val bottomLift = (navBar + scale.dp(Tokens.BottomMinGapAboveNavBar) - scale.dp(Tokens.RefHeightPx - bottomRowsBottom))
+        val topShift = (statusBar + scale.dp(Tokens.TopRowMinGapBelowStatusBar) - scale.dp(TopRowTop)).coerceAtLeast(0.dp)
+        val bottomLift = (navBar + scale.dp(Tokens.BottomMinGapAboveNavBar) - scale.dp(Tokens.RefHeightPx - BottomRowsBottom))
             .coerceAtLeast(0.dp)
 
-        fun top(rect: RefRect, anchor: Anchor): Dp = when (anchor) {
-            Anchor.Top -> scale.dp(rect.top) + topShift
-            Anchor.Bottom -> maxHeight - scale.dp(Tokens.RefHeightPx - rect.top) - bottomLift
+        /** Where a reference y position ends up on this screen. */
+        fun y(refY: Float, anchor: Anchor): Dp = when (anchor) {
+            Anchor.Top -> scale.dp(refY) + topShift
+            Anchor.Bottom -> maxHeight - scale.dp(Tokens.RefHeightPx - refY) - bottomLift
         }
 
         fun Modifier.place(rect: RefRect, anchor: Anchor): Modifier =
-            offset(x = scale.dp(rect.left), y = top(rect, anchor)).size(scale.dp(rect.width), scale.dp(rect.height))
+            offset(x = scale.dp(rect.left), y = y(rect.top, anchor)).size(scale.dp(rect.width), scale.dp(rect.height))
 
         // The D-pad sits at a fixed fraction of the height and shrinks before it touches a row.
-        val topRowBottom = RemoteButtons.filter { it.anchor == Anchor.Top }.maxOf { top(it.bounds, it.anchor) + scale.dp(it.bounds.height) }
-        val bottomRowsTop = RemoteButtons.filter { it.anchor == Anchor.Bottom }.minOf { top(it.bounds, it.anchor) }
+        val topRowBottom = y(TopRowBottom, Anchor.Top)
+        val bottomRowsTop = y(BottomRowsTop, Anchor.Bottom)
         val dpadCenterY = maxHeight * Tokens.DpadCenterYFraction
         val gap = scale.dp(Tokens.DpadMinGap)
         val dpadDiameter = min(
@@ -194,13 +196,12 @@ fun RemoteScreen(
                     modifier = Modifier.place(spec.bounds, spec.anchor),
                     hold = spec.hold,
                     iconSize = scale.dp(spec.iconSize),
-                    fill = if (micActive) Tokens.MicActiveFill else spec.fill,
-                    stroke = spec.stroke,
-                    tint = if (micActive) Tokens.MicActiveIcon else spec.tint,
+                    style = if (micActive) Tokens.MicActiveStyle else spec.style,
+                    shape = RoundedCornerShape(spec.corner),
                 )
             }
 
-            Box(Modifier.offset(x = scale.dp(Tokens.DevicePill.left), y = top(Tokens.DevicePill, Anchor.Top))) {
+            Box(Modifier.offset(x = scale.dp(Tokens.DevicePill.left), y = y(Tokens.DevicePill.top, Anchor.Top))) {
                 DevicePill(state = state, onClick = onOpenDevices)
                 deviceMenu()
             }
@@ -225,9 +226,10 @@ fun RemoteScreen(
 @Composable
 private fun DevicePill(state: RemoteUiState, onClick: () -> Unit) {
     val scale = LocalRefScale.current
-    val connected = state.link != LinkState.Disconnected
-    val fill = if (connected) Tokens.PillFill else Tokens.PillFillDisconnected
-    val content = if (connected) Tokens.PillContent else Tokens.PillContentDisconnected
+    // Connecting shows the connected colours too, with a pulse on top.
+    val active = state.link != LinkState.Disconnected
+    val fill = if (active) Tokens.PillFill else Tokens.PillFillDisconnected
+    val content = if (active) Tokens.PillContent else Tokens.PillContentDisconnected
     val shape = RoundedCornerShape(Tokens.ButtonCorner)
     val pill = Tokens.DevicePill
     val dropdown = Tokens.DropdownButton
@@ -275,7 +277,12 @@ private fun DevicePill(state: RemoteUiState, onClick: () -> Unit) {
                 .clickable(onClickLabel = openLabel, role = Role.Button, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.ChevronDown, contentDescription = openLabel, tint = content, modifier = Modifier.size(scale.dp(Tokens.IconChevron)))
+            Icon(
+                imageVector = Icons.ChevronDown,
+                contentDescription = openLabel,
+                tint = content,
+                modifier = Modifier.offset(x = scale.dp(Tokens.IconChevronOffsetX)).size(scale.dp(Tokens.IconChevron)),
+            )
         }
     }
 }
@@ -308,7 +315,7 @@ private fun StatusMessage(text: String?, modifier: Modifier = Modifier) {
                     .padding(horizontal = scale.dp(Tokens.CloseButton.left))
                     .clip(RoundedCornerShape(Tokens.ButtonCorner))
                     .background(Tokens.MessageFill)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = scale.dp(Tokens.MessagePaddingHorizontal), vertical = scale.dp(Tokens.MessagePaddingVertical)),
             )
         }
     }

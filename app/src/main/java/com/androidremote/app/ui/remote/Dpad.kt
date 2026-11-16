@@ -33,18 +33,17 @@ import com.androidremote.app.ui.theme.Tokens
 import kotlin.math.atan2
 import kotlin.math.hypot
 
-/**
- * The five parts of the D-pad.
- *
- * @param angle direction of the zone's pie slice in canvas degrees (0 = right, clockwise).
- */
-enum class DpadZone(val keyCode: Int, val angle: Float) {
-    Right(KeyCodes.DPAD_RIGHT, 0f),
-    Down(KeyCodes.DPAD_DOWN, 90f),
-    Left(KeyCodes.DPAD_LEFT, 180f),
-    Up(KeyCodes.DPAD_UP, 270f),
-    Center(KeyCodes.DPAD_CENTER, 0f),
+/** The five parts of the D-pad. */
+enum class DpadZone(val keyCode: Int) {
+    Right(KeyCodes.DPAD_RIGHT),
+    Down(KeyCodes.DPAD_DOWN),
+    Left(KeyCodes.DPAD_LEFT),
+    Up(KeyCodes.DPAD_UP),
+    Center(KeyCodes.DPAD_CENTER),
 }
+
+/** The four direction zones with the direction of their pie slice in canvas degrees (0 = right, clockwise). */
+private val Directions = listOf(DpadZone.Right to 0f, DpadZone.Down to 90f, DpadZone.Left to 180f, DpadZone.Up to 270f)
 
 /**
  * The round D-pad: a disc split into four pie-slice zones around a centre OK button.
@@ -87,13 +86,13 @@ fun Dpad(diameter: Dp, onPress: (DpadZone, PressEvent) -> Unit, modifier: Modifi
         drawPath(disc, Tokens.DpadStroke)
         drawPath(discInner, Tokens.DpadFill)
 
-        pressed?.takeIf { it != DpadZone.Center }?.let { zone ->
+        Directions.firstOrNull { it.first == pressed }?.let { (_, angle) ->
             clipPath(discInner) {
                 clipPath(ring, clipOp = ClipOp.Difference) {
                     // A 90 degree wedge, larger than the disc so it also covers squared-off corners.
                     drawArc(
                         color = Tokens.PressedOverlay,
-                        startAngle = zone.angle - 45f,
+                        startAngle = angle - 45f,
                         sweepAngle = 90f,
                         useCenter = true,
                         topLeft = Offset(center.x - size.width, center.y - size.width),
@@ -103,9 +102,7 @@ fun Dpad(diameter: Dp, onPress: (DpadZone, PressEvent) -> Unit, modifier: Modifi
             }
         }
 
-        for (zone in DpadZone.entries) {
-            if (zone != DpadZone.Center) drawChevron(zone.angle, unit)
-        }
+        for ((_, angle) in Directions) drawChevron(angle, unit)
 
         drawPath(ring, Tokens.DpadStroke)
         drawPath(button, Tokens.DpadCenterFill)

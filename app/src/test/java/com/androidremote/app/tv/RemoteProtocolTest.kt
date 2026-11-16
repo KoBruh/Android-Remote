@@ -19,7 +19,7 @@ class RemoteProtocolTest {
 
     @Test
     fun `every ping is answered with the same value`() {
-        val protocol = RemoteProtocol(enableIme = false, enableVoice = true)
+        val protocol = RemoteProtocol(enableIme = false)
         val reply = protocol.handle(remoteMessage { remotePingRequest = remotePingRequest { val1 = 42 } })
         assertTrue(reply!!.hasRemotePingResponse())
         assertEquals(42, reply.remotePingResponse.val1)
@@ -27,7 +27,7 @@ class RemoteProtocolTest {
 
     @Test
     fun `configure is answered with the features both sides support`() {
-        val protocol = RemoteProtocol(enableIme = false, enableVoice = true)
+        val protocol = RemoteProtocol(enableIme = false)
         val tvFeatures = RemoteProtocol.FEATURE_PING or RemoteProtocol.FEATURE_KEY or RemoteProtocol.FEATURE_IME or
             RemoteProtocol.FEATURE_POWER or RemoteProtocol.FEATURE_VOLUME
         val reply = protocol.handle(
@@ -52,7 +52,7 @@ class RemoteProtocolTest {
 
     @Test
     fun `set active is answered with the active features and completes the handshake`() {
-        val protocol = RemoteProtocol(enableIme = false, enableVoice = true)
+        val protocol = RemoteProtocol(enableIme = false)
         protocol.handle(remoteMessage { remoteConfigure = remoteConfigure { code1 = allFeatures } })
         assertFalse(protocol.state.connected)
         val reply = protocol.handle(remoteMessage { remoteSetActive = remoteSetActive { active = allFeatures } })!!
@@ -64,7 +64,7 @@ class RemoteProtocolTest {
 
     @Test
     fun `power state and volume are tracked`() {
-        val protocol = RemoteProtocol(enableIme = false, enableVoice = true)
+        val protocol = RemoteProtocol(enableIme = false)
         assertNull(protocol.state.isOn)
         assertNull(protocol.handle(remoteMessage { remoteStart = remoteStart { started = false } }))
         assertEquals(false, protocol.state.isOn)
@@ -80,15 +80,5 @@ class RemoteProtocolTest {
             },
         )
         assertEquals(VolumeInfo(level = 12, max = 100, muted = true), protocol.state.volume)
-    }
-
-    @Test
-    fun `voice chunks are split and padded to what the TV accepts`() {
-        val max = RemoteClient.VOICE_CHUNK_SIZE
-        val min = RemoteClient.VOICE_CHUNK_MIN_SIZE
-        assertEquals(listOf(min), RemoteClient.splitVoiceChunks(ByteArray(100)).map { it.size })
-        assertEquals(listOf(max, max, min), RemoteClient.splitVoiceChunks(ByteArray(2 * max + 1)).map { it.size })
-        assertEquals(listOf(max), RemoteClient.splitVoiceChunks(ByteArray(max)).map { it.size })
-        assertTrue(RemoteClient.splitVoiceChunks(ByteArray(0)).isEmpty())
     }
 }

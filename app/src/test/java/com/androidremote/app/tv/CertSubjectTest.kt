@@ -10,7 +10,7 @@ class CertSubjectTest {
     fun `name and MAC come from the common name`() {
         assertEquals(
             "SHIELD Android TV" to "AA:BB:CC:DD:EE:FF",
-            CertManager.parseNameAndMac("CN=atvremote/darcy/darcy/SHIELD Android TV/AA:BB:CC:DD:EE:FF"),
+            CertSubject.parse("CN=atvremote/darcy/darcy/SHIELD Android TV/AA:BB:CC:DD:EE:FF"),
         )
     }
 
@@ -18,7 +18,7 @@ class CertSubjectTest {
     fun `name comes from the dnQualifier when there is one`() {
         assertEquals(
             "Nexus Player" to "AA:BB:CC:DD:EE:FF",
-            CertManager.parseNameAndMac("CN=atvremote/AA:BB:CC:DD:EE:FF,DNQ=fugu/fugu/Nexus Player"),
+            CertSubject.parse("CN=atvremote/AA:BB:CC:DD:EE:FF,DNQ=fugu/fugu/Nexus Player"),
         )
     }
 
@@ -26,13 +26,13 @@ class CertSubjectTest {
     fun `escaped characters in a name are unescaped`() {
         assertEquals(
             "Living Room, TV" to "AA:BB:CC:DD:EE:FF",
-            CertManager.parseNameAndMac("CN=atvremote/x/x/Living Room\\, TV/AA:BB:CC:DD:EE:FF,O=Example"),
+            CertSubject.parse("CN=atvremote/x/x/Living Room\\, TV/AA:BB:CC:DD:EE:FF,O=Example"),
         )
     }
 
     @Test
     fun `a subject without separators or common name still parses`() {
-        assertEquals("plain" to "plain", CertManager.parseNameAndMac("CN=plain"))
-        assertEquals("Nexus Player" to "", CertManager.parseNameAndMac("DNQ=fugu/fugu/Nexus Player"))
+        assertEquals("plain" to "plain", CertSubject.parse("CN=plain"))
+        assertEquals("Nexus Player" to "", CertSubject.parse("DNQ=fugu/fugu/Nexus Player"))
     }
 }

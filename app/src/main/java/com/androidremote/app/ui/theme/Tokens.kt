@@ -1,8 +1,10 @@
 package com.androidremote.app.ui.theme
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.androidremote.app.data.HapticStrength
 
 /** A rectangle in reference pixels (see [Tokens.RefWidthPx]), origin at the top-left of the screen. */
 data class RefRect(val left: Float, val top: Float, val width: Float, val height: Float) {
@@ -11,6 +13,9 @@ data class RefRect(val left: Float, val top: Float, val width: Float, val height
     val centerX: Float get() = left + width / 2f
     val centerY: Float get() = top + height / 2f
 }
+
+/** The three colours of a button. */
+data class ButtonStyle(val fill: Color, val stroke: Color, val icon: Color)
 
 /**
  * Every visual value of the app in one place.
@@ -50,12 +55,6 @@ object Tokens {
     /** TV icon, device name and chevron colour on the connected pill. */
     val PillContent = Color(0xFF0A3818)
 
-    /** Device pill and dropdown fill while disconnected. */
-    val PillFillDisconnected = Color(0xFF444746)
-
-    /** TV icon, device name and chevron colour on the disconnected pill. */
-    val PillContentDisconnected = Color(0xFFE3E3E3)
-
     /** D-pad disc fill. */
     val DpadFill = Color(0xFF1B1B1B)
 
@@ -66,7 +65,7 @@ object Tokens {
     val DpadCenterFill = Color(0xFF444746)
 
     /** The four chevrons on the D-pad. */
-    val DpadArrow = Color(0xFF444746)
+    val DpadArrow = DpadCenterFill
 
     /** Fill of back, home, mic, mute, vol- and vol+. */
     val BottomButtonFill = Color(0xFF1B1B1B)
@@ -77,32 +76,50 @@ object Tokens {
     /** Icon colour on the bottom buttons. */
     val BottomIcon = Color(0xFFE3E3E3)
 
+    /** Device pill and dropdown fill while disconnected. */
+    val PillFillDisconnected = DpadCenterFill
+
+    /** TV icon, device name and chevron colour on the disconnected pill. */
+    val PillContentDisconnected = BottomIcon
+
+    /** Main text colour in the device menu, dialogs and Settings. */
+    val TextPrimary = BottomIcon
+
     /** Overlay drawn on any button while it is pressed. */
     val PressedOverlay = Color.White.copy(alpha = 0.08f)
 
     /** Mic button fill while the phone microphone is streaming to the TV. */
-    val MicActiveFill = Color(0xFF6DD58C)
+    val MicActiveFill = PillFill
 
     /** Mic icon colour while the phone microphone is streaming to the TV. */
-    val MicActiveIcon = Color(0xFF0A3818)
+    val MicActiveIcon = PillContent
 
     /** Background of the short status message shown under the top row. */
-    val MessageFill = Color(0xFF1E1F20)
+    val MessageFill = TopButtonFill
 
     /** Text colour of the short status message. */
-    val MessageText = Color(0xFFE3E3E3)
+    val MessageText = TextPrimary
 
     /** Accent colour for switches, text fields and dialog buttons in Settings and dialogs. */
-    val Accent = Color(0xFF6DD58C)
+    val Accent = PillFill
 
     /** Surface colour of dialogs, the device dropdown and Settings cards. */
-    val Surface = Color(0xFF1E1F20)
+    val Surface = TopButtonFill
 
     /** Secondary (dimmer) text in menus, dialogs and Settings. */
-    val TextSecondary = Color(0xFFC4C7C5)
+    val TextSecondary = TopIcon
 
     /** Colour for destructive actions and error text. */
     val Error = Color(0xFFF2B8B5)
+
+    /** Look of the close and power buttons. */
+    val TopButtonStyle = ButtonStyle(TopButtonFill, TopButtonStroke, TopIcon)
+
+    /** Look of back, home, mic, mute, vol- and vol+. */
+    val BottomButtonStyle = ButtonStyle(BottomButtonFill, BottomButtonStroke, BottomIcon)
+
+    /** Look of the mic button while the phone microphone is streaming. */
+    val MicActiveStyle = ButtonStyle(MicActiveFill, BottomButtonStroke, MicActiveIcon)
 
     // ---- Corners ---------------------------------------------------------------------------
 
@@ -156,13 +173,13 @@ object Tokens {
     const val DpadStrokeWidth = 6f
 
     /** Diameter of the centre OK button, including its ring. */
-    const val DpadCenterDiameter = 358f
+    const val DpadCenterDiameter = 366f
 
     /** Width of a chevron, tip to tip. */
     const val DpadChevronWidth = 78f
 
     /** Line thickness of the chevrons. */
-    const val DpadChevronStroke = 12.5f
+    const val DpadChevronStroke = 13.5f
 
     /** Distance from the disc's outer edge to the outer tip of each chevron. */
     const val DpadChevronInset = 110f
@@ -209,6 +226,9 @@ object Tokens {
     /** Dropdown chevron icon size. */
     const val IconChevron = 63f
 
+    /** Sideways shift of the dropdown chevron from the middle of its button. Negative = left. */
+    const val IconChevronOffsetX = -5f
+
     /** Power icon size. */
     const val IconPower = 64f
 
@@ -225,6 +245,30 @@ object Tokens {
 
     /** Text size of the short status message. */
     const val MessageTextSize = 37f
+
+    /** Space between the status message's text and the left and right edge of its box. */
+    const val MessagePaddingHorizontal = 42f
+
+    /** Space between the status message's text and the top and bottom edge of its box. */
+    const val MessagePaddingVertical = 26f
+
+    // ---- Device menu, dialogs and Settings (dp) --------------------------------------------
+    // These screens are ordinary lists, not part of the pixel-matched remote, so they use dp.
+
+    /** Space between the screen edge and the content of Settings. */
+    val ScreenPadding: Dp = 16.dp
+
+    /** Inner padding of a Settings card. */
+    val CardPadding: Dp = 16.dp
+
+    /** Gap between cards in Settings, and between a text and the field below it in dialogs. */
+    val ItemSpacing: Dp = 12.dp
+
+    /** Gap between the lines inside a Settings card. */
+    val LineSpacing: Dp = 8.dp
+
+    /** Size of the small TV icon on a Settings card. */
+    val ListIconSize: Dp = 20.dp
 
     // ---- Feel ------------------------------------------------------------------------------
 
@@ -243,8 +287,15 @@ object Tokens {
     /** How long a status message stays on screen, in milliseconds. */
     const val MessageDurationMs = 4000L
 
-    /** Default haptic strength for new installs: 0 = light, 1 = medium, 2 = strong. */
-    const val DefaultHapticStrength = 1
+    /** Haptic strength of a fresh install. It can be changed in Settings. */
+    val DefaultHapticStrength = HapticStrength.Medium
+
+    /** The vibration played for each haptic strength (an android.view.HapticFeedbackConstants value). */
+    fun hapticFeedback(strength: HapticStrength): Int = when (strength) {
+        HapticStrength.Light -> HapticFeedbackConstants.CLOCK_TICK
+        HapticStrength.Medium -> HapticFeedbackConstants.KEYBOARD_TAP
+        HapticStrength.Strong -> HapticFeedbackConstants.LONG_PRESS
+    }
 
     /** Alpha of the reference screenshot overlay (debug builds). */
     const val ReferenceOverlayAlpha = 0.5f

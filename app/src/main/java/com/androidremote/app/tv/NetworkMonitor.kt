@@ -24,15 +24,17 @@ class NetworkMonitor(context: Context) {
         return network.takeIf { capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) }
     }
 
-    /** Emits the Wi-Fi network whenever one becomes available, and null when it is lost. */
+    /** Emits the Wi-Fi network to use whenever it changes: the newest one available, or null when there is none. */
     fun wifiNetworks(): Flow<Network?> = callbackFlow {
+        // During a hand-over the new network appears before the old one is lost, so keep track of all of them.
+        val available = LinkedHashSet<Network>()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                trySend(network)
+                trySend(synchronized(available) { available.apply { add(network) }.lastOrNull() })
             }
 
             override fun onLost(network: Network) {
-                trySend(null)
+                trySend(synchronized(available) { available.apply { remove(network) }.lastOrNull() })
             }
         }
         val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()

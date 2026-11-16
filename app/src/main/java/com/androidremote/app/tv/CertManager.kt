@@ -4,17 +4,6 @@ import android.annotation.SuppressLint
 import android.net.Network
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.Closeable
-import java.io.InputStream
-import java.io.OutputStream
 import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -33,52 +22,6 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509TrustManager
 import javax.security.auth.x500.X500Principal
-
-/** The TV presented a different certificate than the one stored when it was paired. */
-class CertMismatchException : CertificateException("TV certificate does not match the paired one")
-
-/** True if this failure was caused by a [CertMismatchException] (it arrives wrapped in an SSL exception). */
-fun Throwable.isCertMismatch(): Boolean = generateSequence(this) { it.cause }.any { it is CertMismatchException }
-
-/** An open TLS connection to the TV. */
-class TlsConnection(val socket: SSLSocket, val serverCert: X509Certificate) : Closeable {
-    val input: InputStream = socket.inputStream
-    val output: OutputStream = socket.outputStream
-
-    /** Closes in the background: closing a TLS socket can write to the network, which is not allowed on the main thread. */
-    override fun close() {
-        closer.execute { runCatching { socket.close() } }
-    }
-
-    private companion object {
-        val closer = Dispatchers.IO.asExecutor()
-    }
-}
-
-/**
- * Runs the blocking [block] on the IO dispatcher. If the coroutine is cancelled meanwhile, the
- * receiver is closed, which makes blocked socket reads and writes fail straight away.
- */
-suspend fun <T> Closeable.cancellableIo(block: () -> T): T = coroutineScope {
-    var finished = false
-    val watcher = launch(Dispatchers.IO) {
-        try {
-            awaitCancellation()
-        } finally {
-            if (!finished) runCatching { close() }
-        }
-    }
-    try {
-        withContext(Dispatchers.IO) { block() }
-    } catch (e: Throwable) {
-        // A cancelled read surfaces as an IOException from the closed socket; report cancellation instead.
-        currentCoroutineContext().ensureActive()
-        throw e
-    } finally {
-        finished = true
-        watcher.cancel()
-    }
-}
 
 /**
  * Owns this phone's TLS client identity and opens connections to TVs.
@@ -201,64 +144,5 @@ class CertManager {
         /** SHA-256 fingerprint of a certificate as upper-case hex. */
         fun fingerprint(cert: X509Certificate): String =
             MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02X".format(it.toInt() and 0xFF) }
-
-        /** Name and MAC address the TV advertises in its certificate. Either may be empty. */
-        fun nameAndMac(cert: X509Certificate): Pair<String, String> =
-            parseNameAndMac(cert.subjectX500Principal.getName(X500Principal.RFC2253, mapOf(OID_DN_QUALIFIER to "DNQ")))
-
-        /**
-         * Extracts the name and MAC address from the subject of an Android TV certificate.
-         * Ported from androidtvremote2 (_parse_name_and_mac).
-         *
-         * NVIDIA SHIELD example: `CN=atvremote/darcy/darcy/SHIELD Android TV/XX:XX:XX:XX:XX:XX`
-         * Nexus Player example: `dnQualifier=fugu/fugu/Nexus Player/CN=atvremote/XX:XX:XX:XX:XX:XX`
-         *
-         * @param subject the subject in RFC 2253 form, with the dnQualifier attribute named `DNQ`.
-         */
-        fun parseNameAndMac(subject: String): Pair<String, String> {
-            val attributes = splitRfc2253(subject)
-            val commonName = attributes["CN"].orEmpty()
-            val dnQualifier = attributes["DNQ"].orEmpty()
-            val commonNameParts = commonName.split("/")
-            val name = when {
-                dnQualifier.isNotEmpty() -> dnQualifier.split("/").last()
-                commonNameParts.size > 1 -> commonNameParts[commonNameParts.size - 2]
-                else -> commonName
-            }
-            return name to commonNameParts.last()
-        }
-
-        private const val OID_DN_QUALIFIER = "2.5.4.46"
-
-        /** Splits an RFC 2253 distinguished name into its attributes, honouring backslash escapes. */
-        private fun splitRfc2253(subject: String): Map<String, String> {
-            val result = mutableMapOf<String, String>()
-            val current = StringBuilder()
-            var key: String? = null
-            fun flush() {
-                key?.let { result.putIfAbsent(it.trim().uppercase(), current.toString()) }
-                key = null
-                current.clear()
-            }
-            var i = 0
-            while (i < subject.length) {
-                val c = subject[i]
-                when {
-                    c == '\\' && i + 1 < subject.length -> {
-                        current.append(subject[i + 1])
-                        i++
-                    }
-                    c == '=' && key == null -> {
-                        key = current.toString()
-                        current.clear()
-                    }
-                    c == ',' || c == '+' -> flush()
-                    else -> current.append(c)
-                }
-                i++
-            }
-            flush()
-            return result
-        }
     }
 }

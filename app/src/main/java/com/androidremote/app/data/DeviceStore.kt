@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.androidremote.app.ui.theme.Tokens
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -20,7 +19,7 @@ import java.io.IOException
 
 /** A TV this phone has been paired with. */
 data class PairedDevice(
-    /** SHA-256 fingerprint of the TV's certificate. Identifies the TV and pins its certificate. */
+    /** SHA-256 fingerprint of the certificate the TV presented while pairing. Identifies the TV. */
     val fingerprint: String,
     val name: String,
     /** IP address (or host name) of the TV. */
@@ -31,12 +30,51 @@ data class PairedDevice(
     val mac: String,
     /** mDNS service name seen at pairing, used to follow the TV when its IP address changes. */
     val serviceName: String,
-)
+    /**
+     * SHA-256 fingerprint of the certificate the TV must present on the control connection.
+     * Empty right after pairing: the first control connection fills it in (trust on first use),
+     * and every later connection is rejected unless it matches.
+     */
+    val pin: String = "",
+) {
+    companion object {
+        /**
+         * The device to store after a successful pairing.
+         *
+         * @param certName name from the TV's certificate, may be blank.
+         * @param certMac MAC address from the TV's certificate (already normalised), may be empty.
+         * @param discoveredName mDNS name the pairing was started from, if it came from discovery.
+         * @param previous the stored entry for this TV if it was paired before. What the user
+         *   entered for it (the MAC address) is kept.
+         */
+        fun fromPairing(
+            fingerprint: String,
+            certName: String,
+            certMac: String,
+            host: String,
+            defaultPort: Int,
+            discoveredName: String?,
+            discoveredPort: Int?,
+            previous: PairedDevice?,
+        ) = PairedDevice(
+            fingerprint = fingerprint,
+            name = certName.ifBlank { discoveredName ?: previous?.name ?: host },
+            host = host,
+            port = discoveredPort ?: previous?.port ?: defaultPort,
+            mac = previous?.mac?.ifEmpty { null } ?: certMac,
+            serviceName = discoveredName ?: previous?.serviceName.orEmpty(),
+            // Pairing again always re-pins: the TV may have a new identity (e.g. after a reset).
+            pin = "",
+        )
+    }
+}
+
+/** How strong the vibration on a button press is. */
+enum class HapticStrength { Light, Medium, Strong }
 
 data class Settings(
     val hapticsEnabled: Boolean = true,
-    /** 0 = light, 1 = medium, 2 = strong. */
-    val hapticStrength: Int = Tokens.DefaultHapticStrength,
+    val hapticStrength: HapticStrength = HapticStrength.Medium,
     val keepScreenOn: Boolean = false,
     /** The phone's volume keys control the TV while the app is open. */
     val volumeKeysControlTv: Boolean = true,
@@ -58,8 +96,12 @@ data class StoredData(
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "android_remote")
 
-/** Persists paired TVs and settings in Jetpack DataStore. */
-class DeviceStore(context: Context) {
+/**
+ * Persists paired TVs and settings in Jetpack DataStore.
+ *
+ * @param defaults the settings of a fresh install.
+ */
+class DeviceStore(context: Context, private val defaults: Settings = Settings()) {
 
     private val store = context.applicationContext.dataStore
 
@@ -89,7 +131,7 @@ class DeviceStore(context: Context) {
         store.edit { prefs ->
             val settings = transform(prefs.toSettings())
             prefs[HAPTICS_ENABLED] = settings.hapticsEnabled
-            prefs[HAPTIC_STRENGTH] = settings.hapticStrength
+            prefs[HAPTIC_STRENGTH] = settings.hapticStrength.ordinal
             prefs[KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[VOLUME_KEYS] = settings.volumeKeysControlTv
             prefs[REFERENCE_OVERLAY] = settings.referenceOverlay
@@ -110,17 +152,14 @@ class DeviceStore(context: Context) {
         settings = toSettings(),
     )
 
-    private fun Preferences.toSettings(): Settings {
-        val defaults = Settings()
-        return Settings(
-            hapticsEnabled = this[HAPTICS_ENABLED] ?: defaults.hapticsEnabled,
-            hapticStrength = this[HAPTIC_STRENGTH] ?: defaults.hapticStrength,
-            keepScreenOn = this[KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
-            volumeKeysControlTv = this[VOLUME_KEYS] ?: defaults.volumeKeysControlTv,
-            referenceOverlay = this[REFERENCE_OVERLAY] ?: defaults.referenceOverlay,
-            standbyTipDismissed = this[STANDBY_TIP_DISMISSED] ?: defaults.standbyTipDismissed,
-        )
-    }
+    private fun Preferences.toSettings() = Settings(
+        hapticsEnabled = this[HAPTICS_ENABLED] ?: defaults.hapticsEnabled,
+        hapticStrength = this[HAPTIC_STRENGTH]?.let(HapticStrength.entries::getOrNull) ?: defaults.hapticStrength,
+        keepScreenOn = this[KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
+        volumeKeysControlTv = this[VOLUME_KEYS] ?: defaults.volumeKeysControlTv,
+        referenceOverlay = this[REFERENCE_OVERLAY] ?: defaults.referenceOverlay,
+        standbyTipDismissed = this[STANDBY_TIP_DISMISSED] ?: defaults.standbyTipDismissed,
+    )
 
     private fun encodeDevices(devices: List<PairedDevice>): String = JSONArray().apply {
         for (device in devices) {
@@ -131,7 +170,8 @@ class DeviceStore(context: Context) {
                     .put("host", device.host)
                     .put("port", device.port)
                     .put("mac", device.mac)
-                    .put("serviceName", device.serviceName),
+                    .put("serviceName", device.serviceName)
+                    .put("pin", device.pin),
             )
         }
     }.toString()
@@ -149,6 +189,7 @@ class DeviceStore(context: Context) {
                     port = o.getInt("port"),
                     mac = o.optString("mac"),
                     serviceName = o.optString("serviceName"),
+                    pin = o.optString("pin"),
                 )
             }
         } catch (_: JSONException) {

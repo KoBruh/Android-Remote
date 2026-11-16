@@ -10,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.androidremote.app.R
 import com.androidremote.app.data.PairedDevice
 import com.androidremote.app.tv.DiscoveredTv
@@ -79,6 +78,6 @@ private fun SectionLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = Tokens.TextSecondary,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = Modifier.padding(horizontal = Tokens.ItemSpacing, vertical = Tokens.LineSpacing),
     )
 }
