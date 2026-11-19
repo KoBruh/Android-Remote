@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.androidremote.app.tv.KeyCodes
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -69,6 +70,23 @@ data class PairedDevice(
     }
 }
 
+/**
+ * The key the Power button sends to turn a TV off. TVs differ: on some, POWER only switches
+ * the screen off for a while, and SLEEP or TV_POWER is what their own remote does.
+ */
+enum class PowerOffKey(val keyCode: Int) {
+    Power(KeyCodes.POWER),
+    Sleep(KeyCodes.SLEEP),
+    TvPower(KeyCodes.TV_POWER),
+    ;
+
+    /**
+     * The key for a power press on a connected TV whose last reported power state was [wasOn]:
+     * this key to turn it off, or POWER to wake a TV that reports it is off (SLEEP cannot wake).
+     */
+    fun keyFor(wasOn: Boolean?): Int = if (wasOn == false) KeyCodes.POWER else keyCode
+}
+
 /** How strong the vibration on a button press is. */
 enum class HapticStrength { Light, Medium, Strong }
 
@@ -82,6 +100,8 @@ data class Settings(
     val referenceOverlay: Boolean = false,
     /** The one-time "Networked standby" tip in Settings has been dismissed. */
     val standbyTipDismissed: Boolean = false,
+    /** What the Power button sends to turn the TV off. */
+    val powerOffKey: PowerOffKey = PowerOffKey.Power,
 )
 
 data class StoredData(
@@ -136,6 +156,7 @@ class DeviceStore(context: Context, private val defaults: Settings = Settings())
             prefs[VOLUME_KEYS] = settings.volumeKeysControlTv
             prefs[REFERENCE_OVERLAY] = settings.referenceOverlay
             prefs[STANDBY_TIP_DISMISSED] = settings.standbyTipDismissed
+            prefs[POWER_OFF_KEY] = settings.powerOffKey.name
         }
     }
 
@@ -159,6 +180,7 @@ class DeviceStore(context: Context, private val defaults: Settings = Settings())
         volumeKeysControlTv = this[VOLUME_KEYS] ?: defaults.volumeKeysControlTv,
         referenceOverlay = this[REFERENCE_OVERLAY] ?: defaults.referenceOverlay,
         standbyTipDismissed = this[STANDBY_TIP_DISMISSED] ?: defaults.standbyTipDismissed,
+        powerOffKey = PowerOffKey.entries.firstOrNull { it.name == this[POWER_OFF_KEY] } ?: defaults.powerOffKey,
     )
 
     private fun encodeDevices(devices: List<PairedDevice>): String = JSONArray().apply {
@@ -206,5 +228,6 @@ class DeviceStore(context: Context, private val defaults: Settings = Settings())
         val VOLUME_KEYS = booleanPreferencesKey("volume_keys")
         val REFERENCE_OVERLAY = booleanPreferencesKey("reference_overlay")
         val STANDBY_TIP_DISMISSED = booleanPreferencesKey("standby_tip_dismissed")
+        val POWER_OFF_KEY = stringPreferencesKey("power_off_key")
     }
 }

@@ -49,7 +49,12 @@ reports that it is off.
 
 After the TV is turned off (with the app or with its own remote), the app stops reconnecting
 to it: on some TVs a new remote connection wakes the screen again. Press Power or reopen the
-app to connect again. The debug build's **Settings → Connection log** shows every connect,
+app to connect again.
+
+If the TV turns itself back on after the app switches it off, but stays off with its own
+remote, change **Settings → Key that turns the TV off**: *Power* (KEYCODE_POWER, 26) is the
+default, *Sleep* (223) and *TV power* (177) are what some TVs' own remotes send. A TV that
+reports it is off is always woken with Power. The debug build's **Settings → Connection log** shows every connect,
 disconnect, power state the TV reports, and key sent.
 
 - The TV can only be woken if **Networked standby** is on in its settings and it was turned

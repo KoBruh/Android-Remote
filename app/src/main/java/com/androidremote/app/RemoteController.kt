@@ -342,7 +342,7 @@ class RemoteController(
             if (_state.value.tv.connected || (_state.value.busy && awaitConnected(CONNECT_GRACE_MS))) {
                 val wasOn = _state.value.tv.isOn
                 trace("Power pressed: connected, TV last reported ${powerName(wasOn)}")
-                sendKey(KeyCodes.POWER)
+                sendKey(_state.value.settings.powerOffKey.keyFor(wasOn))
                 sleep.onPowerKey(wasOn)
                 if (sleep.asleep) trace("TV is going to sleep: the app will not reconnect on its own")
                 return PowerResult.Toggled

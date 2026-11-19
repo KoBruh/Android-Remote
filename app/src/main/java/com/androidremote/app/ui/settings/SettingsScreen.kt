@@ -46,6 +46,7 @@ import com.androidremote.app.BuildConfig
 import com.androidremote.app.R
 import com.androidremote.app.data.HapticStrength
 import com.androidremote.app.data.PairedDevice
+import com.androidremote.app.data.PowerOffKey
 import com.androidremote.app.data.Settings
 import com.androidremote.app.ui.DebugReport
 import com.androidremote.app.ui.icons.Icons
@@ -127,6 +128,24 @@ fun SettingsScreen(
             }
         }
 
+        Card {
+            Text(stringResource(R.string.settings_power_off_key), color = Tokens.TextPrimary)
+            Row(horizontalArrangement = Arrangement.spacedBy(Tokens.LineSpacing)) {
+                for (key in PowerOffKey.entries) {
+                    FilterChip(
+                        selected = settings.powerOffKey == key,
+                        onClick = { onSettingsChange { it.copy(powerOffKey = key) } },
+                        label = { Text(stringResource(key.label)) },
+                    )
+                }
+            }
+            Text(
+                stringResource(R.string.settings_power_off_key_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = Tokens.TextSecondary,
+            )
+        }
+
         if (BuildConfig.DEBUG) {
             SectionTitle(stringResource(R.string.settings_debug))
             Card {
@@ -148,6 +167,13 @@ fun SettingsScreen(
         Spacer(Modifier.height(Tokens.LineSpacing))
     }
 }
+
+private val PowerOffKey.label: Int
+    get() = when (this) {
+        PowerOffKey.Power -> R.string.power_key_power
+        PowerOffKey.Sleep -> R.string.power_key_sleep
+        PowerOffKey.TvPower -> R.string.power_key_tv_power
+    }
 
 private val HapticStrength.label: Int
     get() = when (this) {

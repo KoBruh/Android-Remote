@@ -17,6 +17,12 @@ object KeyCodes {
     const val SEARCH = 84
     const val VOLUME_MUTE = 164
 
+    /** TV power toggle as sent by many TV remotes; some TVs handle it differently from [POWER]. */
+    const val TV_POWER = 177
+
+    /** Puts the TV to sleep; does nothing if it already sleeps. */
+    const val SLEEP = 223
+
     /** A readable name for the log, e.g. "26 POWER". */
     fun describe(keyCode: Int): String {
         val name = when (keyCode) {
@@ -32,6 +38,8 @@ object KeyCodes {
             POWER -> "POWER"
             SEARCH -> "SEARCH"
             VOLUME_MUTE -> "VOLUME_MUTE"
+            TV_POWER -> "TV_POWER"
+            SLEEP -> "SLEEP"
             else -> return "$keyCode"
         }
         return "$keyCode $name"

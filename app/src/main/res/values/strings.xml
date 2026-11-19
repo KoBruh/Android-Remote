@@ -67,6 +67,11 @@
     <string name="haptic_strong">Strong</string>
     <string name="settings_keep_awake">Keep screen awake while open</string>
     <string name="settings_volume_keys">Volume keys control the TV</string>
+    <string name="settings_power_off_key">Key that turns the TV off</string>
+    <string name="settings_power_off_key_hint">If the TV turns itself back on after the app switches it off, try another key. A TV that reports it is off is always woken with Power.</string>
+    <string name="power_key_power">Power</string>
+    <string name="power_key_sleep">Sleep</string>
+    <string name="power_key_tv_power">TV power</string>
     <string name="settings_debug">Debug</string>
     <string name="settings_connection_log">Connection log</string>
     <string name="settings_connection_log_empty">Nothing yet.</string>
