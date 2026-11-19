@@ -21,6 +21,7 @@ import com.androidremote.app.tv.Trace
 import com.androidremote.app.tv.TvState
 import com.androidremote.app.tv.VoiceRecorder
 import com.androidremote.app.tv.WakeOnLan
+import com.androidremote.app.tv.describe
 import com.androidremote.app.tv.isCertMismatch
 import com.androidremote.app.tv.logcatTrace
 import kotlinx.coroutines.CancellationException
@@ -125,6 +126,13 @@ class RemoteController(
     private val _state = MutableStateFlow(RemoteUiState())
     val state: StateFlow<RemoteUiState> = _state.asStateFlow()
 
+    /** What the connection did recently: shown in Settings in debug builds, and written to Logcat. */
+    val log = EventLog()
+    private val trace: Trace = logcatTrace(log::add)
+
+    /** The TV was turned off: do not reconnect, because a new connection can wake it again. */
+    private val sleep = SleepTracker()
+
     /** How many callers currently want the TV connection kept alive. */
     private var holders = 0
     private var network: Network? = null
@@ -152,8 +160,15 @@ class RemoteController(
     init {
         scope.launch { store.data.collect(::onStored) }
         scope.launch {
+            var previous = TvState()
             client.state.collect { tv ->
                 if (tv.connected) connectedThisAttempt = true
+                if (tv.connected != previous.connected) trace(if (tv.connected) "Connected: TV accepts keys" else "Disconnected")
+                if (tv.connected && tv.isOn != previous.isOn && tv.isOn != null) {
+                    trace("TV reports power ${if (tv.isOn) "ON" else "OFF"}")
+                    sleep.onPowerState(tv.isOn)
+                }
+                previous = tv
                 _state.update { it.copy(tv = tv, busy = it.busy && !tv.connected) }
             }
         }
@@ -164,6 +179,9 @@ class RemoteController(
     /** Keeps the TV connection alive until the matching [release]. The activity calls this while it is visible. */
     fun acquire() {
         if (holders++ > 0) return
+        trace("Remote in use: connecting")
+        // Opening the app means the user wants the TV, even if it was turned off before.
+        sleep.onWanted()
         network = networks.currentWifi()
         watchJob = scope.launch {
             launch {
@@ -181,6 +199,7 @@ class RemoteController(
 
     fun release() {
         if (holders == 0 || --holders > 0) return
+        trace("Remote no longer in use: disconnecting")
         watchJob?.cancel()
         micHeld = false
         allDiscovered = emptyList()
@@ -203,6 +222,7 @@ class RemoteController(
                 discovered = unpaired(allDiscovered, data.devices),
             )
         }
+        if (old?.fingerprint != new?.fingerprint) sleep.onWanted()
         if (old?.fingerprint != new?.fingerprint || old?.host != new?.host || old?.port != new?.port) restartLink()
     }
 
@@ -242,10 +262,16 @@ class RemoteController(
         while (true) {
             // Read the stored entry afresh each time: its address or pin may have been updated meanwhile.
             val device = _state.value.devices.firstOrNull { it.fingerprint == fingerprint } ?: return
+            if (sleep.asleep && !waking) {
+                trace("TV is off: not reconnecting until Power is pressed or the app is reopened")
+                _state.update { it.copy(busy = false) }
+                return
+            }
             connectedThisAttempt = false
             securedThisAttempt = false
+            trace("Connecting to ${device.name} at ${device.host}:${device.port}")
             try {
-                client.run(device.host, device.port, device.pin.ifEmpty { null }, network) { presented ->
+                client.run(device.host, device.port, device.pin.ifEmpty { null }, network, trace) { presented ->
                     securedThisAttempt = true
                     // First control connection after pairing: pin the certificate the TV presented.
                     if (device.pin.isEmpty()) scope.launch { store.update(device.copy(pin = presented)) }
@@ -255,6 +281,7 @@ class RemoteController(
             } catch (e: Exception) {
                 // Anything else (unreachable TV, dropped connection, missing network permission) is retried.
                 coroutineContext.ensureActive()
+                trace("Connection ended: ${e.describe()}")
                 if (connectedThisAttempt) backoffMs = MIN_BACKOFF_MS
                 when {
                     securedThisAttempt -> tlsFailures = 0
@@ -285,7 +312,11 @@ class RemoteController(
     // ---- Keys ----------------------------------------------------------------------------------
 
     /** Sends a key to the TV. Returns false if there is no connection. */
-    fun sendKey(keyCode: Int, direction: KeyDirection = KeyDirection.SHORT): Boolean = client.sendKey(keyCode, direction)
+    fun sendKey(keyCode: Int, direction: KeyDirection = KeyDirection.SHORT): Boolean {
+        val sent = client.sendKey(keyCode, direction)
+        trace("Key ${KeyCodes.describe(keyCode)} $direction ${if (sent) "sent" else "not sent: no connection"}")
+        return sent
+    }
 
     // ---- Power and wake ------------------------------------------------------------------------
 
@@ -309,11 +340,18 @@ class RemoteController(
             // Already connected, or still on the first connection attempt (e.g. the app was just
             // opened): the TV is most likely reachable, so this is a normal power press.
             if (_state.value.tv.connected || (_state.value.busy && awaitConnected(CONNECT_GRACE_MS))) {
-                client.sendKey(KeyCodes.POWER)
+                val wasOn = _state.value.tv.isOn
+                trace("Power pressed: connected, TV last reported ${powerName(wasOn)}")
+                sendKey(KeyCodes.POWER)
+                sleep.onPowerKey(wasOn)
+                if (sleep.asleep) trace("TV is going to sleep: the app will not reconnect on its own")
                 return PowerResult.Toggled
             }
+            // Not reachable: the user wants the TV on.
+            sleep.onWanted()
             val mac = WakeOnLan.parseMac(device.mac)
             if (mac == null) {
+                trace("Power pressed: TV not reachable and no MAC address to wake it")
                 restartLink()
                 return PowerResult.NoMac
             }
@@ -321,13 +359,21 @@ class RemoteController(
             try {
                 val wifi = network
                 WakeOnLan.send(mac) { socket -> wifi?.bindSocket(socket) }
+                trace("Power pressed: TV not reachable, Wake-on-LAN sent to ${device.mac}")
                 restartLink()
-                if (!awaitConnected(WAKE_TIMEOUT_MS)) return PowerResult.WakeFailed
+                if (!awaitConnected(WAKE_TIMEOUT_MS)) {
+                    trace("Wake-up failed: no connection within ${WAKE_TIMEOUT_MS / 1000} s")
+                    return PowerResult.WakeFailed
+                }
                 // The TV may report "off" for a moment while it wakes; give it time to settle so
                 // POWER is not sent to a TV that is already coming up (that would turn it off again).
                 withTimeoutOrNull(WAKE_SETTLE_MS) { client.state.first { !it.connected || it.isOn == true } }
                 val tv = client.state.value
-                if (tv.connected && tv.isOn == false) client.sendKey(KeyCodes.POWER)
+                if (tv.connected && tv.isOn == false) {
+                    trace("Woken TV still reports OFF: sending POWER")
+                    sendKey(KeyCodes.POWER)
+                    sleep.onPowerKey(wasOn = false)
+                }
                 return PowerResult.Woke
             } finally {
                 waking = false
@@ -336,6 +382,12 @@ class RemoteController(
         } finally {
             release()
         }
+    }
+
+    private fun powerName(isOn: Boolean?) = when (isOn) {
+        true -> "ON"
+        false -> "OFF"
+        null -> "nothing"
     }
 
     // ---- Voice ---------------------------------------------------------------------------------
@@ -376,7 +428,7 @@ class RemoteController(
      * @throws java.io.IOException if the TV cannot be reached.
      */
     suspend fun startPairing(host: String, trace: Trace = {}): PairingSession =
-        pairing.start(host, network ?: networks.currentWifi(), logcatTrace(trace))
+        pairing.start(host, network ?: networks.currentWifi()) { line -> this.trace(line); trace(line) }
 
     /** Probes every layer between this phone and the TV at [host] and returns a text report (debug builds). */
     suspend fun diagnose(host: String): String = diagnostics.run(host, network ?: networks.currentWifi())

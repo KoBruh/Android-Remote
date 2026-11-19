@@ -47,6 +47,7 @@ import com.androidremote.app.R
 import com.androidremote.app.data.HapticStrength
 import com.androidremote.app.data.PairedDevice
 import com.androidremote.app.data.Settings
+import com.androidremote.app.ui.DebugReport
 import com.androidremote.app.ui.icons.Icons
 import com.androidremote.app.ui.theme.Tokens
 
@@ -63,6 +64,7 @@ fun SettingsScreen(
     onSetMac: (PairedDevice, String) -> Boolean,
     onRepair: (PairedDevice) -> Unit,
     onForget: (PairedDevice) -> Unit,
+    log: List<String> = emptyList(),
 ) {
     BackHandler(onBack = onBack)
     Column(
@@ -131,6 +133,10 @@ fun SettingsScreen(
                 SwitchRow(stringResource(R.string.settings_overlay), settings.referenceOverlay) { on ->
                     onSettingsChange { it.copy(referenceOverlay = on) }
                 }
+            }
+            SectionTitle(stringResource(R.string.settings_connection_log))
+            Card {
+                DebugReport(log.ifEmpty { listOf(stringResource(R.string.settings_connection_log_empty)) }.joinToString("\n"))
             }
         }
 

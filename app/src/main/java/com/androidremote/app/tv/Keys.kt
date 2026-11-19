@@ -16,6 +16,26 @@ object KeyCodes {
     const val POWER = 26
     const val SEARCH = 84
     const val VOLUME_MUTE = 164
+
+    /** A readable name for the log, e.g. "26 POWER". */
+    fun describe(keyCode: Int): String {
+        val name = when (keyCode) {
+            HOME -> "HOME"
+            BACK -> "BACK"
+            DPAD_UP -> "DPAD_UP"
+            DPAD_DOWN -> "DPAD_DOWN"
+            DPAD_LEFT -> "DPAD_LEFT"
+            DPAD_RIGHT -> "DPAD_RIGHT"
+            DPAD_CENTER -> "DPAD_CENTER"
+            VOLUME_UP -> "VOLUME_UP"
+            VOLUME_DOWN -> "VOLUME_DOWN"
+            POWER -> "POWER"
+            SEARCH -> "SEARCH"
+            VOLUME_MUTE -> "VOLUME_MUTE"
+            else -> return "$keyCode"
+        }
+        return "$keyCode $name"
+    }
 }
 
 /** How a key is pressed: a tap, or the start and end of a hold. */

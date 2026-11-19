@@ -40,6 +40,7 @@ private enum class Screen { Remote, Settings }
 @Composable
 fun AppRoot(controller: RemoteController, onClose: () -> Unit) {
     val state by controller.state.collectAsState()
+    val log by controller.log.lines.collectAsState()
     var screen by rememberSaveable { mutableStateOf(Screen.Remote) }
     var menuOpen by remember { mutableStateOf(false) }
     var pairing by remember { mutableStateOf<PairingTarget?>(null) }
@@ -133,6 +134,7 @@ fun AppRoot(controller: RemoteController, onClose: () -> Unit) {
                 onSetMac = controller::setMac,
                 onRepair = { pairing = PairingTarget(host = it.host) },
                 onForget = controller::forget,
+                log = log,
             )
         }
     }

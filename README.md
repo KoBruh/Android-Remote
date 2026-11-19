@@ -47,6 +47,11 @@ The Power button sends POWER while the TV is reachable. If it is not, it sends a
 Wake-on-LAN packet, reconnects for up to 20 seconds, and only sends POWER if the TV still
 reports that it is off.
 
+After the TV is turned off (with the app or with its own remote), the app stops reconnecting
+to it: on some TVs a new remote connection wakes the screen again. Press Power or reopen the
+app to connect again. The debug build's **Settings → Connection log** shows every connect,
+disconnect, power state the TV reports, and key sent.
+
 - The TV can only be woken if **Networked standby** is on in its settings and it was turned
   off with a short press of Power. A fully shut down TV cannot be woken by software.
 - Wake-on-LAN needs the TV's MAC address. It is filled in from the TV's certificate at

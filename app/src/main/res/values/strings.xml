@@ -68,6 +68,8 @@
     <string name="settings_keep_awake">Keep screen awake while open</string>
     <string name="settings_volume_keys">Volume keys control the TV</string>
     <string name="settings_debug">Debug</string>
+    <string name="settings_connection_log">Connection log</string>
+    <string name="settings_connection_log_empty">Nothing yet.</string>
     <string name="settings_overlay">Show reference screenshot overlay</string>
     <string name="about">Android Remote %1$s. TV protocol ported from androidtvremote2 (Apache-2.0). Icons: Material Symbols (Apache-2.0).</string>
 </resources>

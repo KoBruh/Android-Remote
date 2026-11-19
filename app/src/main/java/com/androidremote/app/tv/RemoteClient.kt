@@ -48,6 +48,7 @@ class RemoteClient(private val certManager: CertManager) {
      * Connects to the TV and serves the connection until it ends. Never returns normally.
      *
      * @param pinnedFingerprint the TV certificate to insist on, or null to accept the one presented.
+     * @param trace told about every stage of the connection attempt (see [CertManager.connect]).
      * @param onSecured called once the TLS handshake is done, with the fingerprint of the TV's certificate.
      * @throws javax.net.ssl.SSLException if the TLS handshake fails: the TV's certificate changed
      *   (see [isCertMismatch]) or the TV no longer accepts this phone (pair again).
@@ -58,9 +59,10 @@ class RemoteClient(private val certManager: CertManager) {
         port: Int,
         pinnedFingerprint: String?,
         network: Network?,
+        trace: Trace = {},
         onSecured: (fingerprint: String) -> Unit = {},
     ): Nothing = withContext(Dispatchers.IO) {
-        val connection = certManager.connect(host, port, pinnedFingerprint, network)
+        val connection = certManager.connect(host, port, pinnedFingerprint, network, trace)
         val current = Session(Channel(Channel.UNLIMITED), RemoteProtocol(ENABLE_IME))
         try {
             onSecured(CertManager.fingerprint(connection.serverCert))

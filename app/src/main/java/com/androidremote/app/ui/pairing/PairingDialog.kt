@@ -1,14 +1,11 @@
 package com.androidremote.app.ui.pairing
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,9 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,24 +33,11 @@ import com.androidremote.app.tv.InvalidPairingCodeException
 import com.androidremote.app.tv.PairingSecret
 import com.androidremote.app.tv.PairingSession
 import com.androidremote.app.tv.describe
+import com.androidremote.app.ui.DebugReport
 import com.androidremote.app.ui.theme.Tokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.Collections
-
-/** Debug builds: the failure report, selectable and with a button to copy it. */
-@Composable
-private fun DebugReport(report: String) {
-    val context = LocalContext.current
-    Spacer(Modifier.height(Tokens.ItemSpacing))
-    TextButton(onClick = {
-        val clipboard = context.getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("Android Remote report", report))
-    }) { Text(stringResource(R.string.debug_copy_report)) }
-    SelectionContainer {
-        Text(report, color = Tokens.TextSecondary, fontFamily = FontFamily.Monospace, fontSize = Tokens.DebugReportTextSize)
-    }
-}
 
 /** Which TV a pairing dialog is for. With a null [host] the dialog first asks for the IP address. */
 data class PairingTarget(val host: String? = null, val discovered: DiscoveredTv? = null)
@@ -173,7 +155,10 @@ fun PairingDialog(target: PairingTarget, controller: RemoteController, onClose: 
                     Spacer(Modifier.height(Tokens.ItemSpacing))
                     Text(stringResource(it), color = Tokens.Error)
                 }
-                report?.let { DebugReport(it) }
+                report?.let {
+                    Spacer(Modifier.height(Tokens.ItemSpacing))
+                    DebugReport(it)
+                }
             }
         },
         confirmButton = {
