@@ -17,11 +17,22 @@ class NetworkMonitor(context: Context) {
 
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
 
-    /** The Wi-Fi network if it is the active one right now, else null. */
+    /**
+     * The phone's Wi-Fi network, or null if it is not on Wi-Fi.
+     *
+     * A VPN running over Wi-Fi also reports the Wi-Fi transport, so it is skipped: this is the
+     * same network [wifiNetworks] reports, and a reconnect is not triggered for nothing.
+     */
+    @Suppress("DEPRECATION") // allNetworks: its replacement is the callback in wifiNetworks.
     fun currentWifi(): Network? {
-        val network = connectivity.activeNetwork ?: return null
-        val capabilities = connectivity.getNetworkCapabilities(network) ?: return null
-        return network.takeIf { capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) }
+        fun isWifi(network: Network): Boolean {
+            val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        }
+        val active = connectivity.activeNetwork
+        if (active != null && isWifi(active)) return active
+        return connectivity.allNetworks.lastOrNull(::isWifi)
     }
 
     /** One line per network the phone is on, for [Diagnostics]: transports (a VPN shows up here), interface and addresses. */
@@ -55,7 +66,10 @@ class NetworkMonitor(context: Context) {
                 trySend(synchronized(available) { available.apply { remove(network) }.lastOrNull() })
             }
         }
-        val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
         connectivity.registerNetworkCallback(request, callback)
         awaitClose { connectivity.unregisterNetworkCallback(callback) }
     }
