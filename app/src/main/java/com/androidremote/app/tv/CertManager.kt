@@ -96,11 +96,8 @@ class CertManager {
                 context.init(arrayOf(ClientKeyManager(clientCertificate())), arrayOf(trustManager), null)
                 trace("Client key ready")
 
-                if (network != null) {
-                    stage = "bind to Wi-Fi network $network"
-                    network.bindSocket(raw)
-                }
-                stage = "TCP connect $host:$port (${if (network != null) "bound to Wi-Fi network $network" else "default route"})"
+                val route = bindOrDefaultRoute(network, bind = { it.bindSocket(raw) }, trace = trace)
+                stage = "TCP connect $host:$port ($route)"
                 trace("$stage ...")
                 val started = System.nanoTime()
                 raw.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)

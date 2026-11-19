@@ -35,4 +35,13 @@ class CertSubjectTest {
         assertEquals("plain" to "plain", CertSubject.parse("CN=plain"))
         assertEquals("Nexus Player" to "", CertSubject.parse("DNQ=fugu/fugu/Nexus Player"))
     }
+
+    @Test
+    fun `the TCL test TV's subject gives its name and MAC`() {
+        // Subject of the real TV (192.168.0.55) as X500Principal renders it with the DNQ keyword map.
+        assertEquals(
+            "UnionTV" to "28:AD:18:4C:78:29",
+            CertSubject.parse("CN=atvremote/28:AD:18:4C:78:29,DNQ=UnionTV/UnionTV/UnionTV"),
+        )
+    }
 }

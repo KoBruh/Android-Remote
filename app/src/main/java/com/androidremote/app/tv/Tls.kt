@@ -9,6 +9,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.Closeable
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.cert.CertificateException
@@ -60,3 +61,25 @@ suspend fun <T> Closeable.cancellableIo(block: () -> T): T = coroutineScope {
         watcher.cancel()
     }
 }
+
+/**
+ * Binds a socket to the Wi-Fi [network] so TV traffic does not leave over mobile data.
+ *
+ * Android refuses the bind (EPERM) when a VPN does not let apps go around it. The socket then
+ * keeps the default route, which still reaches the TV when the VPN leaves local traffic alone
+ * (as most do, and as Google's own remote relies on).
+ *
+ * @return how the socket will be routed, for the trace.
+ */
+fun <N : Any> bindOrDefaultRoute(network: N?, bind: (N) -> Unit, trace: Trace): String {
+    if (network == null) return DEFAULT_ROUTE
+    return try {
+        bind(network)
+        "bound to Wi-Fi network $network"
+    } catch (e: IOException) {
+        trace("Cannot bind to Wi-Fi network $network, using the default route: ${e.describe()}")
+        DEFAULT_ROUTE
+    }
+}
+
+private const val DEFAULT_ROUTE = "default route"
